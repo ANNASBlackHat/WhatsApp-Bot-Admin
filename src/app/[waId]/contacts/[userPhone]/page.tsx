@@ -15,7 +15,6 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
-  WA_ID,
   chatDoc,
   contactDoc,
   messagesCollection,
@@ -31,15 +30,15 @@ import {
   WaAccount,
   WithId,
 } from "@/types/firestore";
-
 import { formatTimestamp, truncate } from "@/lib/utils";
 
 interface PageProps {
-  params: Promise<{ userPhone: string }>;
+  params: Promise<{ waId: string; userPhone: string }>;
 }
 
 export default function ContactDetailPage({ params }: PageProps) {
   const resolvedParams = use(params);
+  const waId = decodeURIComponent(resolvedParams.waId);
   const userPhone = decodeURIComponent(resolvedParams.userPhone);
 
   const [chat, setChat] = useState<Chat | null>(null);
@@ -48,10 +47,15 @@ export default function ContactDetailPage({ params }: PageProps) {
   const [messages, setMessages] = useState<WithId<Message>[]>([]);
   const [prompts, setPrompts] = useState<WithId<Prompt>[]>([]);
 
-  const [loadingChat, setLoadingChat] = useState<boolean>(Boolean(WA_ID && userPhone));
-  const [loadingMessages, setLoadingMessages] = useState<boolean>(Boolean(WA_ID && userPhone));
+  const [loadingChat, setLoadingChat] = useState<boolean>(Boolean(waId && userPhone));
+  const [loadingMessages, setLoadingMessages] = useState<boolean>(Boolean(waId && userPhone));
   const [isUpdatingBot, setIsUpdatingBot] = useState<boolean>(false);
   const [isUpdatingPrompt, setIsUpdatingPrompt] = useState<boolean>(false);
+
+  const [replyMessage, setReplyMessage] = useState<string>("");
+  const [isSendingReply, setIsSendingReply] = useState<boolean>(false);
+  const [isMarkingRead, setIsMarkingRead] = useState<boolean>(false);
+  const [replyStatus, setReplyStatus] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -65,13 +69,12 @@ export default function ContactDetailPage({ params }: PageProps) {
   }, [messages]);
 
   useEffect(() => {
-    if (!WA_ID || !userPhone) {
+    if (!waId || !userPhone) {
       return;
     }
 
-
     // 1. Account settings snapshot
-    const unsubAccount = onSnapshot(doc(db, waAccountDoc()), (snapshot) => {
+    const unsubAccount = onSnapshot(doc(db, waAccountDoc(waId)), (snapshot) => {
       if (snapshot.exists()) {
         setAccount(snapshot.data() as WaAccount);
       }
@@ -79,7 +82,7 @@ export default function ContactDetailPage({ params }: PageProps) {
 
     // 2. Chat doc snapshot
     const unsubChat = onSnapshot(
-      doc(db, chatDoc(userPhone)),
+      doc(db, chatDoc(waId, userPhone)),
       (snapshot) => {
         if (snapshot.exists()) {
           setChat(snapshot.data() as Chat);
@@ -95,7 +98,7 @@ export default function ContactDetailPage({ params }: PageProps) {
     );
 
     // 3. Contact doc snapshot
-    const unsubContact = onSnapshot(doc(db, contactDoc(userPhone)), (snapshot) => {
+    const unsubContact = onSnapshot(doc(db, contactDoc(waId, userPhone)), (snapshot) => {
       if (snapshot.exists()) {
         setContact(snapshot.data() as Contact);
       } else {
@@ -105,7 +108,7 @@ export default function ContactDetailPage({ params }: PageProps) {
 
     // 4. Messages snapshot (last 50 messages, ordered desc, reversed to display oldest to newest)
     const messagesQuery = query(
-      collection(db, messagesCollection(userPhone)),
+      collection(db, messagesCollection(waId, userPhone)),
       orderBy("timeMillis", "desc"),
       limit(50)
     );
@@ -118,7 +121,6 @@ export default function ContactDetailPage({ params }: PageProps) {
           ...(docSnap.data() as Message),
         }));
 
-        // Reverse to render oldest to newest
         list.reverse();
         setMessages(list);
         setLoadingMessages(false);
@@ -131,7 +133,7 @@ export default function ContactDetailPage({ params }: PageProps) {
 
     // 5. Prompts library snapshot
     const unsubPrompts = onSnapshot(
-      collection(db, promptsCollection()),
+      collection(db, promptsCollection(waId)),
       (snapshot) => {
         const promptList: WithId<Prompt>[] = snapshot.docs.map((docSnap) => ({
           id: docSnap.id,
@@ -151,7 +153,7 @@ export default function ContactDetailPage({ params }: PageProps) {
       unsubMessages();
       unsubPrompts();
     };
-  }, [userPhone]);
+  }, [waId, userPhone]);
 
   const defaultPolicyActive = account?.default_bot_active_for_new_contacts ?? false;
   const isDefaultPolicy = chat?.bot_active === null || chat?.bot_active === undefined;
@@ -165,7 +167,7 @@ export default function ContactDetailPage({ params }: PageProps) {
   const handleToggleBot = async () => {
     try {
       setIsUpdatingBot(true);
-      const targetRef = doc(db, chatDoc(userPhone));
+      const targetRef = doc(db, chatDoc(waId, userPhone));
       let nextState: boolean;
 
       if (chat?.bot_active === true) {
@@ -190,7 +192,7 @@ export default function ContactDetailPage({ params }: PageProps) {
   const handleResetBot = async () => {
     try {
       setIsUpdatingBot(true);
-      const targetRef = doc(db, chatDoc(userPhone));
+      const targetRef = doc(db, chatDoc(waId, userPhone));
       await updateDoc(targetRef, { bot_active: null }).catch(async () => {
         await setDoc(targetRef, { bot_active: null }, { merge: true });
       });
@@ -208,7 +210,7 @@ export default function ContactDetailPage({ params }: PageProps) {
 
     try {
       setIsUpdatingPrompt(true);
-      const targetRef = doc(db, chatDoc(userPhone));
+      const targetRef = doc(db, chatDoc(waId, userPhone));
       await updateDoc(targetRef, { custom_prompt_id: promptId }).catch(async () => {
         await setDoc(targetRef, { custom_prompt_id: promptId }, { merge: true });
       });
@@ -218,11 +220,6 @@ export default function ContactDetailPage({ params }: PageProps) {
       setIsUpdatingPrompt(false);
     }
   };
-
-  const [replyMessage, setReplyMessage] = useState<string>("");
-  const [isSendingReply, setIsSendingReply] = useState<boolean>(false);
-  const [isMarkingRead, setIsMarkingRead] = useState<boolean>(false);
-  const [replyStatus, setReplyStatus] = useState<string | null>(null);
 
   // Manual Reply handler (writes to wa_bot/recent-chat/all)
   const handleSendManualReply = async (e: React.FormEvent) => {
@@ -234,7 +231,7 @@ export default function ContactDetailPage({ params }: PageProps) {
       setReplyStatus(null);
 
       await addDoc(collection(db, outgoingMessageCollection()), {
-        from: WA_ID,
+        from: waId,
         to: userPhone,
         message: replyMessage.trim(),
         timestamp: Date.now(),
@@ -255,7 +252,7 @@ export default function ContactDetailPage({ params }: PageProps) {
   const handleMarkAsRead = async () => {
     try {
       setIsMarkingRead(true);
-      const targetRef = doc(db, chatDoc(userPhone));
+      const targetRef = doc(db, chatDoc(waId, userPhone));
       await updateDoc(targetRef, { unreadCount: 0 });
     } catch (err) {
       console.error("Failed to mark chat as read:", err);
@@ -269,7 +266,7 @@ export default function ContactDetailPage({ params }: PageProps) {
       {/* Top Breadcrumb Header */}
       <div className="mb-4 flex items-center justify-between">
         <Link
-          href="/"
+          href={`/${encodeURIComponent(waId)}`}
           className="inline-flex items-center gap-1.5 text-xs font-medium text-[#6B6A62] transition-colors hover:text-[#1C1C1A]"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -473,7 +470,6 @@ export default function ContactDetailPage({ params }: PageProps) {
             </div>
           </form>
         </div>
-
 
         {/* Right 1 Col: Controls Side Panel */}
         <div className="space-y-6">

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { AccountSwitcher } from "@/components/account-switcher";
 
 export function Header() {
   const { user, logout } = useAuth();
@@ -22,6 +23,7 @@ export function Header() {
     <header className="sticky top-0 z-30 flex h-14 w-full items-center justify-between border-b border-[#E7E5DD] bg-[#FFFFFF] px-4 sm:px-6">
       <div className="flex items-center gap-3">
         <h1 className="text-sm font-medium text-[#1C1C1A]">WhatsApp Bot Admin</h1>
+        {user && <AccountSwitcher />}
       </div>
 
       {user && (

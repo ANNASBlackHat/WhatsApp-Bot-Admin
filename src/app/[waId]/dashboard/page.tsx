@@ -1,29 +1,35 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { collection, doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
-  WA_ID,
   chatCollection,
   contactCollection,
   waAccountDoc,
 } from "@/lib/firestore-paths";
 import { Chat, Contact, WaAccount, WithId } from "@/types/firestore";
-import { formatChatTime, truncate } from "@/lib/utils";
+import { formatChatTime, truncate, checkQuietHoursActive } from "@/lib/utils";
 
-export default function DashboardPage() {
+interface PageProps {
+  params: Promise<{ waId: string }>;
+}
+
+export default function DashboardPage({ params }: PageProps) {
+  const resolvedParams = use(params);
+  const waId = decodeURIComponent(resolvedParams.waId);
+
   const [account, setAccount] = useState<WaAccount | null>(null);
   const [chats, setChats] = useState<WithId<Chat>[]>([]);
   const [contactsMap, setContactsMap] = useState<Record<string, Contact>>({});
-  const [loading, setLoading] = useState<boolean>(Boolean(WA_ID));
+  const [loading, setLoading] = useState<boolean>(Boolean(waId));
 
   useEffect(() => {
-    if (!WA_ID) return;
+    if (!waId) return;
 
     // 1. Account doc listener
-    const unsubAccount = onSnapshot(doc(db, waAccountDoc()), (snapshot) => {
+    const unsubAccount = onSnapshot(doc(db, waAccountDoc(waId)), (snapshot) => {
       if (snapshot.exists()) {
         setAccount(snapshot.data() as WaAccount);
       }
@@ -31,7 +37,7 @@ export default function DashboardPage() {
 
     // 2. Contacts listener (for names & photos)
     const unsubContacts = onSnapshot(
-      collection(db, contactCollection()),
+      collection(db, contactCollection(waId)),
       (snapshot) => {
         const map: Record<string, Contact> = {};
         snapshot.docs.forEach((docSnap) => {
@@ -43,7 +49,7 @@ export default function DashboardPage() {
 
     // 3. Chats listener
     const unsubChats = onSnapshot(
-      collection(db, chatCollection()),
+      collection(db, chatCollection(waId)),
       (snapshot) => {
         const list: WithId<Chat>[] = snapshot.docs.map((docSnap) => ({
           id: docSnap.id,
@@ -65,10 +71,12 @@ export default function DashboardPage() {
       unsubContacts();
       unsubChats();
     };
-  }, []);
+  }, [waId]);
 
   const defaultPolicyActive = account?.default_bot_active_for_new_contacts ?? false;
   const isGlobalActive = account?.is_bot_active ?? true;
+  const quietStatus = checkQuietHoursActive(account?.quiet_hours);
+
 
   // Calculate metrics
   let activeBotsCount = 0;
@@ -110,7 +118,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-xl font-medium text-[#1C1C1A]">Ops Dashboard</h1>
           <p className="text-xs text-[#6B6A62]">
-            Real-time overview of WhatsApp bot activity and contact engagement
+            Account ID: <code className="font-mono text-[#1C1C1A] font-medium">{waId}</code>
           </p>
         </div>
 
@@ -127,18 +135,25 @@ export default function DashboardPage() {
               isGlobalActive ? "bg-[#2F7A5C]" : "bg-[#B23B31]"
             }`}
           />
-          <span>Global Bot: {isGlobalActive ? "ACTIVE" : "KILL SWITCH ON (DISABLED)"}</span>
         </div>
       </div>
 
-      {!WA_ID && (
-        <div className="rounded-lg border border-[#E7E5DD] bg-[#FAFAF8] p-4 text-xs text-[#B9722F]">
-          <span className="font-medium">Configuration warning:</span>{" "}
-          <code className="bg-[#F3F2ED] px-1 py-0.5 font-mono">NEXT_PUBLIC_WA_ID</code> is not set in environment variables.
+      {quietStatus.active && (
+        <div className="flex items-center justify-between rounded-lg border border-[#B9722F]/30 bg-[#F5EBDF] px-4 py-2.5 text-xs text-[#B9722F]">
+          <div className="flex items-center gap-2">
+            <span className="text-sm">🌙</span>
+            <span className="font-medium">
+              Scheduled Quiet Hours active (until {quietStatus.untilTime})
+            </span>
+          </div>
+          <span className="hidden sm:inline text-[11px] text-[#6B6A62]">
+            AI auto-replies are temporarily paused across all contacts.
+          </span>
         </div>
       )}
 
       {/* Metrics Summary Cards Grid */}
+
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {/* Active Bots Card */}
         <div className="rounded-lg border border-[#E7E5DD] bg-[#FFFFFF] p-5 shadow-xs">
@@ -220,7 +235,7 @@ export default function DashboardPage() {
           </div>
 
           <Link
-            href="/"
+            href={`/${encodeURIComponent(waId)}`}
             className="text-xs font-medium text-[#2F7A5C] hover:underline"
           >
             View all contacts →
@@ -246,7 +261,7 @@ export default function DashboardPage() {
               return (
                 <Link
                   key={chat.id}
-                  href={`/contacts/${encodeURIComponent(phone)}`}
+                  href={`/${encodeURIComponent(waId)}/contacts/${encodeURIComponent(phone)}`}
                   className="flex items-center justify-between px-5 py-3.5 transition-colors hover:bg-[#F3F2ED]"
                 >
                   <div className="flex items-center gap-3 min-w-0 pr-4">

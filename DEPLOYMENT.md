@@ -25,7 +25,7 @@ Configure the following environment variables in Vercel under **Project Settings
 | `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | **Yes** | Firebase Storage Bucket | `my-project.appspot.com` |
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | **Yes** | Firebase Messaging Sender ID | `1234567890` |
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | **Yes** | Firebase Web App ID | `1:1234567890:web:...` |
-| `NEXT_PUBLIC_WA_ID` | **Yes** | WhatsApp Account ID in Firestore (`wa_bot/{waId}`) | `628123456789` |
+
 
 ---
 

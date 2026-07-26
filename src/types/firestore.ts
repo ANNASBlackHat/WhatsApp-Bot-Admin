@@ -22,12 +22,19 @@ export type WithId<T> = T & { id: string };
 // Root document: wa_bot/{waId}
 // ---------------------------------------------------------------------------
 
+export interface QuietHours {
+  enabled: boolean;
+  start_time: string; // 24h format "HH:mm", e.g. "22:00"
+  end_time: string;   // 24h format "HH:mm", e.g. "07:00"
+  timezone: string;   // Timezone name, e.g. "Asia/Jakarta"
+}
+
 /**
  * Root document fields for a WhatsApp account.
  * Path: `wa_bot/{waId}`
  */
 export interface WaAccount {
-  /** Enables/disables AI auto-reply for this account (existing field). */
+  /** Enables/disables AI auto-reply for this account. */
   is_bot_active: boolean;
 
   /**
@@ -35,7 +42,17 @@ export interface WaAccount {
    * Added by the admin app (PRD §8).
    */
   default_bot_active_for_new_contacts?: boolean;
+
+  /**
+   * Scheduled bot pausing ("quiet hours") configuration.
+   * Added by Task 15.
+   */
+  quiet_hours?: QuietHours;
+
+  /** Optional friendly display name for account switcher. */
+  display_name?: string;
 }
+
 
 // ---------------------------------------------------------------------------
 // Contact: wa_bot/{waId}/contact/{sender}

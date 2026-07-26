@@ -51,3 +51,83 @@ export function truncate(str: string, maxLength: number): string {
   return str.slice(0, maxLength - 1) + "…";
 }
 
+/**
+ * Get cookie value by name.
+ */
+export function getCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) {
+    const val = parts.pop()?.split(";").shift();
+    return val ? decodeURIComponent(val) : null;
+  }
+  return null;
+}
+
+/**
+ * Set cookie value by name with expiration days.
+ */
+export function setCookie(name: string, value: string, days = 30): void {
+  if (typeof document === "undefined") return;
+  const maxAge = days * 24 * 60 * 60;
+  document.cookie = `${name}=${encodeURIComponent(
+    value
+  )}; path=/; max-age=${maxAge}; SameSite=Lax`;
+}
+
+/**
+ * Evaluates whether quiet hours are currently in effect.
+ */
+export function checkQuietHoursActive(
+  config?: { enabled?: boolean; start_time?: string; end_time?: string; timezone?: string },
+  now = new Date()
+): { active: boolean; untilTime?: string } {
+  if (!config || !config.enabled || !config.start_time || !config.end_time) {
+    return { active: false };
+  }
+
+  const tz = config.timezone || "Asia/Jakarta";
+
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const parts = formatter.formatToParts(now);
+    const hourStr = parts.find((p) => p.type === "hour")?.value || "00";
+    const minuteStr = parts.find((p) => p.type === "minute")?.value || "00";
+
+    const currentMinutes = parseInt(hourStr, 10) * 60 + parseInt(minuteStr, 10);
+
+    const [startH, startM] = config.start_time.split(":").map((v) => parseInt(v, 10) || 0);
+    const [endH, endM] = config.end_time.split(":").map((v) => parseInt(v, 10) || 0);
+
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+
+    let isWithin = false;
+
+    if (startMinutes < endMinutes) {
+      isWithin = currentMinutes >= startMinutes && currentMinutes < endMinutes;
+    } else if (startMinutes > endMinutes) {
+      isWithin = currentMinutes >= startMinutes || currentMinutes < endMinutes;
+    } else {
+      isWithin = true;
+    }
+
+    if (isWithin) {
+      return { active: true, untilTime: config.end_time };
+    }
+  } catch (err) {
+    console.error("Failed to parse quiet hours timezone/format:", err);
+  }
+
+  return { active: false };
+}
+
+
+
