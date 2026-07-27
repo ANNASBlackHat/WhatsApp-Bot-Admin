@@ -221,24 +221,55 @@ export default function ContactDetailPage({ params }: PageProps) {
     }
   };
 
-  // Manual Reply handler (writes to wa_bot/recent-chat/all)
+  // Manual Reply handler (writes to wa_bot/recent-chat/all AND chat history with status 'pending')
   const handleSendManualReply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replyMessage.trim()) return;
+    const text = replyMessage.trim();
+    if (!text) return;
 
     try {
       setIsSendingReply(true);
       setReplyStatus(null);
+      const now = Date.now();
 
+      // 1. Queue outgoing message in wa_bot/recent-chat/all
       await addDoc(collection(db, outgoingMessageCollection()), {
         from: waId,
         to: userPhone,
-        message: replyMessage.trim(),
-        timestamp: Date.now(),
+        message: text,
+        timestamp: now,
+      });
+
+      // 2. Manually insert document to chat history messages subcollection with status 'pending'
+      const msgRef = doc(collection(db, messagesCollection(waId, userPhone)));
+      await setDoc(msgRef, {
+        message: text,
+        sender: waId,
+        userType: "admin",
+        timeMillis: now,
+        status: "pending",
+        messageId: msgRef.id,
+      });
+
+      // 3. Update chat metadata (lastChatMessage, lastChatTime)
+      const targetChatRef = doc(db, chatDoc(waId, userPhone));
+      await updateDoc(targetChatRef, {
+        lastChatMessage: text,
+        lastChatTime: now,
+      }).catch(async () => {
+        await setDoc(
+          targetChatRef,
+          {
+            lastChatMessage: text,
+            lastChatTime: now,
+            phone: userPhone,
+          },
+          { merge: true }
+        );
       });
 
       setReplyMessage("");
-      setReplyStatus("Manual reply queued for sending.");
+      setReplyStatus("Manual reply sent & queued with status 'pending'.");
       setTimeout(() => setReplyStatus(null), 3000);
     } catch (err) {
       console.error("Failed to send manual reply:", err);
@@ -247,6 +278,7 @@ export default function ContactDetailPage({ params }: PageProps) {
       setIsSendingReply(false);
     }
   };
+
 
   // Mark as Read handler (resets chat/{userPhone}.unreadCount to 0)
   const handleMarkAsRead = async () => {
@@ -369,8 +401,16 @@ export default function ContactDetailPage({ params }: PageProps) {
                       {/* Sender label */}
                       <div className="mb-1 flex items-center justify-between gap-3 text-[10px] font-medium text-[#6B6A62]">
                         <span>{isCustomer ? displayName : "Bot / Admin"}</span>
-                        <span>{formatTimestamp(msg.timeMillis)}</span>
+                        <div className="flex items-center gap-1.5">
+                          {msg.status === "pending" && (
+                            <span className="font-sans text-[9px] text-[#B9722F]">
+                              ⏳ Pending
+                            </span>
+                          )}
+                          <span>{formatTimestamp(msg.timeMillis)}</span>
+                        </div>
                       </div>
+
 
                       {/* Quoted message placeholder */}
                       {msg.messageQuoted && (
