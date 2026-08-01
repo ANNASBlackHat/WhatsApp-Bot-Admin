@@ -424,7 +424,7 @@ export default function ContactDetailPage({ params }: PageProps) {
                     }`}
                   >
                     <div
-                      className={`max-w-[85%] sm:max-w-[75%] rounded-lg px-3.5 py-2.5 text-xs shadow-2xs ${
+                      className={`max-w-[85%] sm:max-w-[75%] min-w-0 rounded-lg px-3.5 py-2.5 text-xs shadow-2xs break-words [overflow-wrap:anywhere] ${
                         isCustomer
                           ? "bg-surface text-text-primary border border-border-custom"
                           : "bg-accent-active-bg text-text-primary border border-accent-active/20"
@@ -433,7 +433,7 @@ export default function ContactDetailPage({ params }: PageProps) {
                       {/* Sender label */}
                       <div className="mb-1 flex items-center justify-between gap-3 text-[10px] font-medium text-text-secondary">
                         <span>{isCustomer ? displayName : "Bot / Admin"}</span>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 shrink-0">
                           {msg.status === "pending" && (
                             <span className="font-sans text-[9px] text-accent-paused">
                               ⏳ Pending
@@ -445,21 +445,21 @@ export default function ContactDetailPage({ params }: PageProps) {
 
                       {/* Quoted message placeholder */}
                       {msg.messageQuoted && (
-                        <div className="mb-2 rounded border-l-2 border-text-secondary bg-surface-hover p-1.5 text-[11px] text-text-secondary">
+                        <div className="mb-2 rounded border-l-2 border-text-secondary bg-surface-hover p-1.5 text-[11px] text-text-secondary break-words [overflow-wrap:anywhere]">
                           {truncate(msg.messageQuoted, 80)}
                         </div>
                       )}
 
                       {/* Audio Message Rendering */}
                       {audioInfo.isAudio ? (
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 min-w-0">
                           {audioInfo.displayText && (
-                            <p className="whitespace-pre-wrap leading-relaxed">
+                            <p className="whitespace-pre-wrap leading-relaxed break-words [overflow-wrap:anywhere]">
                               {audioInfo.displayText}
                             </p>
                           )}
                           {audioInfo.audioUrl ? (
-                            <div className="mt-1.5">
+                            <div className="mt-1.5 max-w-full">
                               <audio
                                 controls
                                 src={audioInfo.audioUrl}
@@ -478,7 +478,7 @@ export default function ContactDetailPage({ params }: PageProps) {
                       ) : (
                         /* Text Message */
                         msg.message && (
-                          <p className="whitespace-pre-wrap leading-relaxed">
+                          <p className="whitespace-pre-wrap leading-relaxed break-words [overflow-wrap:anywhere]">
                             {msg.message}
                           </p>
                         )
