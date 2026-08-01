@@ -71,6 +71,16 @@ export default function ContactDetailPage({ params }: PageProps) {
   const [replyStatus, setReplyStatus] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-grow textarea height up to max-h-36 (~6 lines)
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 144)}px`;
+    }
+  }, [replyMessage]);
 
   // Auto-scroll to bottom of messages thread
   const scrollToBottom = () => {
@@ -295,6 +305,9 @@ export default function ContactDetailPage({ params }: PageProps) {
       });
 
       setReplyMessage("");
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+      }
       setReplyStatus("Manual reply sent & queued with status 'pending'.");
       setTimeout(() => setReplyStatus(null), 3000);
     } catch (err) {
@@ -302,6 +315,15 @@ export default function ContactDetailPage({ params }: PageProps) {
       setReplyStatus("Failed to send reply. Please check your connection.");
     } finally {
       setIsSendingReply(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (replyMessage.trim() && !isSendingReply) {
+        handleSendManualReply(e);
+      }
     }
   };
 
@@ -578,18 +600,20 @@ export default function ContactDetailPage({ params }: PageProps) {
                 {replyStatus}
               </div>
             )}
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder="Type a manual reply to send via WhatsApp..."
+            <div className="flex items-end gap-2">
+              <textarea
+                ref={textareaRef}
+                rows={1}
+                placeholder="Type a manual reply... (Enter to send, Shift+Enter for new line)"
                 value={replyMessage}
                 onChange={(e) => setReplyMessage(e.target.value)}
-                className="flex-1 rounded-md border border-border-custom bg-canvas px-3 py-2 text-xs text-text-primary placeholder-text-muted focus:border-text-primary focus:bg-surface focus:outline-none focus:ring-1 focus:ring-text-primary"
+                onKeyDown={handleKeyDown}
+                className="flex-1 resize-none overflow-y-auto rounded-md border border-border-custom bg-canvas px-3 py-2 text-xs text-text-primary placeholder-text-muted focus:border-text-primary focus:bg-surface focus:outline-none focus:ring-1 focus:ring-text-primary min-h-[38px] max-h-36 leading-relaxed"
               />
               <button
                 type="submit"
                 disabled={isSendingReply || !replyMessage.trim()}
-                className="inline-flex items-center justify-center rounded-md bg-text-primary px-4 py-2 text-xs font-medium text-surface transition-colors hover:bg-text-primary/90 focus:outline-none focus:ring-2 focus:ring-text-primary disabled:opacity-40"
+                className="inline-flex h-[38px] items-center justify-center rounded-md bg-text-primary px-4 text-xs font-medium text-surface transition-colors hover:bg-text-primary/90 focus:outline-none focus:ring-2 focus:ring-text-primary disabled:opacity-40 shrink-0"
               >
                 {isSendingReply ? "Sending..." : "Send"}
               </button>
