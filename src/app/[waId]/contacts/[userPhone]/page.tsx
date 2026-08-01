@@ -34,6 +34,7 @@ import { formatTimestamp, truncate } from "@/lib/utils";
 import { useChats } from "@/lib/chats-context";
 import { ContactsListPane } from "@/components/contacts-list-pane";
 import { ContactControlsPanel } from "@/components/contact-controls-panel";
+import { ImageLightbox } from "@/components/image-lightbox";
 
 interface PageProps {
   params: Promise<{ waId: string; userPhone: string }>;
@@ -56,6 +57,7 @@ export default function ContactDetailPage({ params }: PageProps) {
   const [account, setAccount] = useState<WaAccount | null>(sharedAccount);
   const [messages, setMessages] = useState<WithId<Message>[]>([]);
   const [prompts, setPrompts] = useState<WithId<Prompt>[]>([]);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   const [loadingChat, setLoadingChat] = useState<boolean>(Boolean(waId && userPhone));
   const [loadingMessages, setLoadingMessages] = useState<boolean>(Boolean(waId && userPhone));
@@ -456,12 +458,16 @@ export default function ContactDetailPage({ params }: PageProps) {
 
                       {/* Inline Media Rendering */}
                       {msg.imgUrl && (
-                        <div className="mt-2 overflow-hidden rounded-md border border-border-custom">
+                        <div
+                          onClick={() => setLightboxImage(msg.imgUrl!)}
+                          title="Click to view larger image"
+                          className="mt-2 overflow-hidden rounded-md border border-border-custom cursor-pointer group"
+                        >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={msg.imgUrl}
                             alt="Attached image"
-                            className="max-h-64 w-auto rounded-md object-contain"
+                            className="max-h-64 w-auto rounded-md object-contain group-hover:opacity-90 transition-opacity"
                             loading="lazy"
                           />
                         </div>
@@ -492,12 +498,16 @@ export default function ContactDetailPage({ params }: PageProps) {
                       )}
 
                       {msg.thumb && !msg.imgUrl && !msg.fileUrl && (
-                        <div className="mt-2 overflow-hidden rounded-md border border-border-custom">
+                        <div
+                          onClick={() => setLightboxImage(msg.thumb!)}
+                          title="Click to view larger image"
+                          className="mt-2 overflow-hidden rounded-md border border-border-custom cursor-pointer group"
+                        >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={msg.thumb}
                             alt="Thumbnail preview"
-                            className="max-h-48 w-auto rounded-md object-contain"
+                            className="max-h-48 w-auto rounded-md object-contain group-hover:opacity-90 transition-opacity"
                             loading="lazy"
                           />
                         </div>
@@ -559,8 +569,15 @@ export default function ContactDetailPage({ params }: PageProps) {
           />
         </div>
       </div>
+
+      {/* Image Lightbox Overlay Modal */}
+      <ImageLightbox
+        src={lightboxImage}
+        onClose={() => setLightboxImage(null)}
+      />
     </div>
   );
 }
+
 
 
