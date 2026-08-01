@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   limit,
   onSnapshot,
@@ -30,7 +31,7 @@ import {
   WaAccount,
   WithId,
 } from "@/types/firestore";
-import { formatTimestamp, truncate, parseAudioMessage } from "@/lib/utils";
+import { formatTimestamp, truncate, parseAudioMessage, correlateMessages } from "@/lib/utils";
 import { useChats } from "@/lib/chats-context";
 import { ContactsListPane } from "@/components/contacts-list-pane";
 import { ContactControlsPanel } from "@/components/contact-controls-panel";
@@ -134,13 +135,23 @@ export default function ContactDetailPage({ params }: PageProps) {
     const unsubMessages = onSnapshot(
       messagesQuery,
       (snapshot) => {
-        const list: WithId<Message>[] = snapshot.docs.map((docSnap) => ({
+        const rawList: WithId<Message>[] = snapshot.docs.map((docSnap) => ({
           id: docSnap.id,
           ...(docSnap.data() as Message),
         }));
 
-        list.reverse();
-        setMessages(list);
+        rawList.reverse();
+        const { displayMessages, pendingDocIdsToDelete } = correlateMessages(rawList);
+
+        if (pendingDocIdsToDelete.length > 0) {
+          pendingDocIdsToDelete.forEach((docId) => {
+            deleteDoc(doc(db, messagesCollection(waId, userPhone), docId)).catch(
+              (err) => console.error("Failed to delete correlated pending doc:", err)
+            );
+          });
+        }
+
+        setMessages(displayMessages);
         setLoadingMessages(false);
       },
       (err) => {
@@ -437,6 +448,14 @@ export default function ContactDetailPage({ params }: PageProps) {
                           {msg.status === "pending" && (
                             <span className="font-sans text-[9px] text-accent-paused">
                               ⏳ Pending
+                            </span>
+                          )}
+                          {msg.status === "unconfirmed" && (
+                            <span
+                              className="font-sans text-[9px] text-accent-danger"
+                              title="Delivery confirmation not received from server within 60s"
+                            >
+                              ⚠️ Not confirmed
                             </span>
                           )}
                           <span>{formatTimestamp(msg.timeMillis)}</span>

@@ -185,6 +185,81 @@ export function parseAudioMessage(msg: {
   };
 }
 
+export interface MessageItem {
+  id: string;
+  message?: string;
+  sender?: string;
+  userType?: string;
+  timeMillis: number;
+  status?: string;
+  [key: string]: any;
+}
+
+export interface CorrelationResult<T extends MessageItem = MessageItem> {
+  displayMessages: T[];
+  pendingDocIdsToDelete: string[];
+}
+
+/**
+ * Correlates optimistic pending messages with confirmed messages written by the backend.
+ * Replaces pending entries when a matching confirmed entry (same message content, userType,
+ * and time within 60s) exists. Marks unmatched pending entries > 60s old as 'unconfirmed'.
+ */
+export function correlateMessages<T extends MessageItem>(
+  messages: T[],
+  now: number = Date.now(),
+  windowMs: number = 60000
+): CorrelationResult<T> {
+  const pendingDocIdsToDelete: string[] = [];
+
+  const pendingMsgs = messages.filter((m) => m.status === "pending");
+  const confirmedMsgs = messages.filter((m) => m.status !== "pending");
+
+  const matchedPendingIds = new Set<string>();
+
+  for (const p of pendingMsgs) {
+    const match = confirmedMsgs.find(
+      (c) =>
+        c.id !== p.id &&
+        c.message === p.message &&
+        (c.userType === p.userType || c.userType === "admin") &&
+        Math.abs(c.timeMillis - p.timeMillis) <= windowMs
+    );
+
+    if (match) {
+      matchedPendingIds.add(p.id);
+      pendingDocIdsToDelete.push(p.id);
+    }
+  }
+
+  const displayMessages: T[] = [];
+
+  for (const m of messages) {
+    if (matchedPendingIds.has(m.id)) {
+      continue;
+    }
+
+    if (m.status === "pending") {
+      const age = now - m.timeMillis;
+      if (age > windowMs) {
+        displayMessages.push({
+          ...m,
+          status: "unconfirmed",
+        });
+      } else {
+        displayMessages.push(m);
+      }
+    } else {
+      displayMessages.push(m);
+    }
+  }
+
+  return {
+    displayMessages,
+    pendingDocIdsToDelete,
+  };
+}
+
 
 
 
