@@ -129,5 +129,62 @@ export function checkQuietHoursActive(
   return { active: false };
 }
 
+export interface AudioMessageInfo {
+  isAudio: boolean;
+  audioUrl: string | null;
+  displayText: string | null;
+}
+
+/**
+ * Detects whether a message is an audio message (by type, extension, or <<audio message>> placeholder)
+ * and extracts the audio URL for rendering.
+ */
+export function parseAudioMessage(msg: {
+  message?: string;
+  fileUrl?: string;
+  type?: string;
+}): AudioMessageInfo {
+  const fileUrl = msg.fileUrl || "";
+  const text = msg.message || "";
+
+  const isTypeAudio = msg.type === "audio";
+  const hasAudioExt = /\.(ogg|mp3|opus|m4a|wav|aac|flac)(\?.*)?$/i.test(fileUrl);
+  const isAudioPlaceholder = text.includes("<<audio message>>");
+
+  // Search for any URL in the message text
+  const urlMatch = text.match(/(https?:\/\/[^\s]+)/i);
+  const extractedUrl = urlMatch ? urlMatch[1] : null;
+
+  const isAudio = isTypeAudio || hasAudioExt || isAudioPlaceholder;
+
+  let audioUrl: string | null = null;
+  if (fileUrl && (isTypeAudio || hasAudioExt || /\.(ogg|mp3|opus|m4a|wav|aac|flac)/i.test(fileUrl))) {
+    audioUrl = fileUrl;
+  } else if (fileUrl && isAudioPlaceholder) {
+    audioUrl = fileUrl;
+  } else if (extractedUrl) {
+    audioUrl = extractedUrl;
+  }
+
+  // Determine remaining display text (excluding placeholder & raw URL)
+  let displayText: string | null = null;
+  if (text) {
+    const cleaned = text
+      .replace(/<<audio message>>/gi, "")
+      .replace(/https?:\/\/[^\s]+/gi, "")
+      .trim();
+    if (cleaned) {
+      displayText = cleaned;
+    }
+  }
+
+  return {
+    isAudio,
+    audioUrl,
+    displayText,
+  };
+}
+
+
 
 

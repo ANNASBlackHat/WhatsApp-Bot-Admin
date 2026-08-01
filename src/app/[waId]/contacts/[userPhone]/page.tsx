@@ -30,7 +30,7 @@ import {
   WaAccount,
   WithId,
 } from "@/types/firestore";
-import { formatTimestamp, truncate } from "@/lib/utils";
+import { formatTimestamp, truncate, parseAudioMessage } from "@/lib/utils";
 import { useChats } from "@/lib/chats-context";
 import { ContactsListPane } from "@/components/contacts-list-pane";
 import { ContactControlsPanel } from "@/components/contact-controls-panel";
@@ -414,6 +414,7 @@ export default function ContactDetailPage({ params }: PageProps) {
             ) : (
               messages.map((msg) => {
                 const isCustomer = msg.userType === "customer";
+                const audioInfo = parseAudioMessage(msg);
 
                 return (
                   <div
@@ -449,15 +450,42 @@ export default function ContactDetailPage({ params }: PageProps) {
                         </div>
                       )}
 
-                      {/* Message Text */}
-                      {msg.message && (
-                        <p className="whitespace-pre-wrap leading-relaxed">
-                          {msg.message}
-                        </p>
+                      {/* Audio Message Rendering */}
+                      {audioInfo.isAudio ? (
+                        <div className="space-y-1.5">
+                          {audioInfo.displayText && (
+                            <p className="whitespace-pre-wrap leading-relaxed">
+                              {audioInfo.displayText}
+                            </p>
+                          )}
+                          {audioInfo.audioUrl ? (
+                            <div className="mt-1.5">
+                              <audio
+                                controls
+                                src={audioInfo.audioUrl}
+                                className="w-full min-w-[200px] max-w-xs rounded border border-border-custom bg-canvas text-text-primary"
+                              >
+                                Your browser does not support audio playback.
+                              </audio>
+                            </div>
+                          ) : (
+                            <div className="inline-flex items-center gap-1.5 rounded border border-border-custom bg-canvas px-3 py-1.5 text-[11px] text-text-muted">
+                              <span>🎵</span>
+                              <span>Audio message unavailable</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        /* Text Message */
+                        msg.message && (
+                          <p className="whitespace-pre-wrap leading-relaxed">
+                            {msg.message}
+                          </p>
+                        )
                       )}
 
-                      {/* Inline Media Rendering */}
-                      {msg.imgUrl && (
+                      {/* Inline Image Media Rendering (if not audio) */}
+                      {!audioInfo.isAudio && msg.imgUrl && (
                         <div
                           onClick={() => setLightboxImage(msg.imgUrl!)}
                           title="Click to view larger image"
@@ -473,7 +501,8 @@ export default function ContactDetailPage({ params }: PageProps) {
                         </div>
                       )}
 
-                      {msg.fileUrl && (
+                      {/* Video or Document File Rendering (if not audio) */}
+                      {!audioInfo.isAudio && msg.fileUrl && (
                         <div className="mt-2">
                           {msg.fileUrl.match(/\.(mp4|webm|mov|mkv)(\?.*)?$/i) ? (
                             <video
@@ -497,7 +526,7 @@ export default function ContactDetailPage({ params }: PageProps) {
                         </div>
                       )}
 
-                      {msg.thumb && !msg.imgUrl && !msg.fileUrl && (
+                      {!audioInfo.isAudio && msg.thumb && !msg.imgUrl && !msg.fileUrl && (
                         <div
                           onClick={() => setLightboxImage(msg.thumb!)}
                           title="Click to view larger image"

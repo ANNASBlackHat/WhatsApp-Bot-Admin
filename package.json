@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx tsx src/lib/__tests__/bot-logic.test.ts && npx tsx src/lib/__tests__/rules-logic.test.ts"
+    "test": "npx tsx src/lib/__tests__/bot-logic.test.ts && npx tsx src/lib/__tests__/rules-logic.test.ts && npx tsx src/lib/__tests__/audio-logic.test.ts"
   },
   "dependencies": {
     "firebase": "^12.16.0",
