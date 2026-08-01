@@ -31,6 +31,9 @@ import {
   WithId,
 } from "@/types/firestore";
 import { formatTimestamp, truncate } from "@/lib/utils";
+import { useChats } from "@/lib/chats-context";
+import { ContactsListPane } from "@/components/contacts-list-pane";
+import { ContactControlsPanel } from "@/components/contact-controls-panel";
 
 interface PageProps {
   params: Promise<{ waId: string; userPhone: string }>;
@@ -41,9 +44,16 @@ export default function ContactDetailPage({ params }: PageProps) {
   const waId = decodeURIComponent(resolvedParams.waId);
   const userPhone = decodeURIComponent(resolvedParams.userPhone);
 
+  const {
+    chats,
+    contactsMap,
+    account: sharedAccount,
+    loading: loadingSharedChats,
+  } = useChats();
+
   const [chat, setChat] = useState<Chat | null>(null);
   const [contact, setContact] = useState<Contact | null>(null);
-  const [account, setAccount] = useState<WaAccount | null>(null);
+  const [account, setAccount] = useState<WaAccount | null>(sharedAccount);
   const [messages, setMessages] = useState<WithId<Message>[]>([]);
   const [prompts, setPrompts] = useState<WithId<Prompt>[]>([]);
 
@@ -69,11 +79,17 @@ export default function ContactDetailPage({ params }: PageProps) {
   }, [messages]);
 
   useEffect(() => {
+    if (sharedAccount) {
+      setAccount(sharedAccount);
+    }
+  }, [sharedAccount]);
+
+  useEffect(() => {
     if (!waId || !userPhone) {
       return;
     }
 
-    // 1. Account settings snapshot
+    // 1. Account settings snapshot (fallback if not in context)
     const unsubAccount = onSnapshot(doc(db, waAccountDoc(waId)), (snapshot) => {
       if (snapshot.exists()) {
         setAccount(snapshot.data() as WaAccount);
@@ -106,7 +122,7 @@ export default function ContactDetailPage({ params }: PageProps) {
       }
     });
 
-    // 4. Messages snapshot (last 50 messages, ordered desc, reversed to display oldest to newest)
+    // 4. Messages snapshot (last 50 messages)
     const messagesQuery = query(
       collection(db, messagesCollection(waId, userPhone)),
       orderBy("timeMillis", "desc"),
@@ -221,7 +237,7 @@ export default function ContactDetailPage({ params }: PageProps) {
     }
   };
 
-  // Manual Reply handler (writes to wa_bot/recent-chat/all AND chat history with status 'pending')
+  // Manual Reply handler
   const handleSendManualReply = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = replyMessage.trim();
@@ -232,7 +248,6 @@ export default function ContactDetailPage({ params }: PageProps) {
       setReplyStatus(null);
       const now = Date.now();
 
-      // 1. Queue outgoing message in wa_bot/recent-chat/all
       await addDoc(collection(db, outgoingMessageCollection()), {
         from: waId,
         to: userPhone,
@@ -240,7 +255,6 @@ export default function ContactDetailPage({ params }: PageProps) {
         timestamp: now,
       });
 
-      // 2. Manually insert document to chat history messages subcollection with status 'pending'
       const msgRef = doc(collection(db, messagesCollection(waId, userPhone)));
       await setDoc(msgRef, {
         message: text,
@@ -251,7 +265,6 @@ export default function ContactDetailPage({ params }: PageProps) {
         messageId: msgRef.id,
       });
 
-      // 3. Update chat metadata (lastChatMessage, lastChatTime)
       const targetChatRef = doc(db, chatDoc(waId, userPhone));
       await updateDoc(targetChatRef, {
         lastChatMessage: text,
@@ -279,8 +292,7 @@ export default function ContactDetailPage({ params }: PageProps) {
     }
   };
 
-
-  // Mark as Read handler (resets chat/{userPhone}.unreadCount to 0)
+  // Mark as Read handler
   const handleMarkAsRead = async () => {
     try {
       setIsMarkingRead(true);
@@ -294,27 +306,44 @@ export default function ContactDetailPage({ params }: PageProps) {
   };
 
   return (
-    <main className="mx-auto max-w-6xl p-4 sm:p-6">
-      {/* Top Breadcrumb Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <Link
-          href={`/${encodeURIComponent(waId)}`}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to contacts
-        </Link>
+    <div className="flex h-[calc(100vh-3.5rem)] w-full overflow-hidden bg-canvas">
+      {/* Left Pane: Contacts List (Desktop only, hidden on mobile) */}
+      <div className="hidden lg:block w-[320px] shrink-0 h-full border-r border-border-custom">
+        <ContactsListPane
+          waId={waId}
+          chats={chats}
+          contactsMap={contactsMap}
+          account={account}
+          loading={loadingSharedChats}
+          selectedUserPhone={userPhone}
+        />
       </div>
 
-      {/* Main Grid: Thread Viewer (left) + Controls Side Panel (right) */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Left 2 Cols: Chat Thread Viewer */}
-        <div className="flex h-[75vh] flex-col overflow-hidden rounded-lg border border-border-custom bg-surface shadow-xs lg:col-span-2">
+      {/* Middle & Right Container (Desktop: side-by-side, Mobile: stacked) */}
+      <div className="flex-1 h-full flex flex-col lg:flex-row min-w-0 overflow-hidden">
+        {/* Middle Column: Chat Thread Viewer */}
+        <div className="flex-1 h-full flex flex-col min-w-0 bg-surface border-b lg:border-b-0 lg:border-r border-border-custom">
           {/* Thread Header */}
-          <div className="flex items-center justify-between border-b border-border-custom bg-canvas px-4 py-3 sm:px-6">
+          <div className="flex items-center justify-between border-b border-border-custom bg-canvas px-4 py-3 sm:px-6 shrink-0">
             <div className="flex items-center gap-3">
+              {/* Mobile Back Button (hidden on desktop) */}
+              <Link
+                href={`/${encodeURIComponent(waId)}`}
+                className="lg:hidden inline-flex items-center text-xs font-medium text-text-secondary hover:text-text-primary mr-1"
+                title="Back to contacts"
+              >
+                <svg
+                  className="h-4 w-4 mr-0.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+                Back
+              </Link>
+
               {contact?.photo ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -411,7 +440,6 @@ export default function ContactDetailPage({ params }: PageProps) {
                         </div>
                       </div>
 
-
                       {/* Quoted message placeholder */}
                       {msg.messageQuoted && (
                         <div className="mb-2 rounded border-l-2 border-text-secondary bg-surface-hover p-1.5 text-[11px] text-text-secondary">
@@ -482,10 +510,10 @@ export default function ContactDetailPage({ params }: PageProps) {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Manual Reply Input Bar (writes to wa_bot/recent-chat/all) */}
+          {/* Manual Reply Input Bar */}
           <form
             onSubmit={handleSendManualReply}
-            className="border-t border-border-custom bg-surface p-3 sm:px-4"
+            className="border-t border-border-custom bg-surface p-3 sm:px-4 shrink-0"
           >
             {replyStatus && (
               <div className="mb-2 text-[11px] font-medium text-accent-active">
@@ -511,131 +539,28 @@ export default function ContactDetailPage({ params }: PageProps) {
           </form>
         </div>
 
-        {/* Right 1 Col: Controls Side Panel */}
-        <div className="space-y-6">
-          {/* Contact Info Card */}
-          <div className="rounded-lg border border-border-custom bg-surface p-5 shadow-xs">
-            <h3 className="text-xs font-medium uppercase tracking-wider text-text-secondary">
-              Contact Details
-            </h3>
-
-            <div className="mt-4 flex items-center gap-3">
-              {contact?.photo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={contact.photo}
-                  alt={displayName}
-                  className="h-12 w-12 rounded-full object-cover border border-border-custom"
-                />
-              ) : (
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-hover text-sm font-medium text-text-primary border border-border-custom">
-                  {displayName.charAt(0).toUpperCase()}
-                </div>
-              )}
-
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-text-primary">
-                  {displayName}
-                </p>
-                <p className="font-mono text-xs text-text-secondary">{userPhone}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Bot Control Card */}
-          <div className="rounded-lg border border-border-custom bg-surface p-5 shadow-xs">
-            <h3 className="text-xs font-medium uppercase tracking-wider text-text-secondary">
-              Bot Control
-            </h3>
-
-            <div className="mt-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-medium text-text-primary">
-                    {isEffectiveActive ? "Bot Active" : "Bot Paused"}
-                  </p>
-                  <p className="text-[11px] text-text-secondary">
-                    {isDefaultPolicy
-                      ? `Using default policy (${defaultPolicyActive ? "Active" : "Paused"})`
-                      : "Explicit per-contact override"}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  disabled={isUpdatingBot || loadingChat}
-                  onClick={handleToggleBot}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-text-primary focus:ring-offset-2 disabled:opacity-50 ${
-                    chat?.bot_active === true
-                      ? "bg-accent-active"
-                      : chat?.bot_active === false
-                      ? "bg-accent-paused"
-                      : "bg-text-muted"
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-surface shadow-sm transition duration-150 ease-in-out ${
-                      chat?.bot_active === true
-                        ? "translate-x-5"
-                        : chat?.bot_active === false
-                        ? "translate-x-0"
-                        : "translate-x-2.5"
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {!isDefaultPolicy && (
-                <button
-                  type="button"
-                  disabled={isUpdatingBot || loadingChat}
-                  onClick={handleResetBot}
-                  className="w-full rounded border border-border-custom bg-canvas py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
-                >
-                  Reset to default policy
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Prompt Selector Card */}
-          <div className="rounded-lg border border-border-custom bg-surface p-5 shadow-xs">
-            <h3 className="text-xs font-medium uppercase tracking-wider text-text-secondary">
-              Assigned Prompt
-            </h3>
-
-            <div className="mt-4 space-y-3">
-              <label htmlFor="prompt-select" className="text-xs text-text-primary">
-                Select system prompt template
-              </label>
-
-              <select
-                id="prompt-select"
-                disabled={isUpdatingPrompt || loadingChat}
-                value={chat?.custom_prompt_id || "default"}
-                onChange={handlePromptChange}
-                className="w-full rounded border border-border-custom bg-surface px-3 py-2 text-xs text-text-primary focus:border-text-primary focus:outline-none focus:ring-1 focus:ring-text-primary disabled:opacity-50"
-              >
-                <option value="default">
-                  -- Use Default Prompt --
-                </option>
-                {prompts.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} {p.is_default ? "(Default)" : ""}
-                  </option>
-                ))}
-              </select>
-
-              <p className="text-[11px] text-text-secondary">
-                {chat?.custom_prompt_id
-                  ? "Using custom assigned prompt for this conversation."
-                  : "No custom prompt assigned. Falling back to default system prompt."}
-              </p>
-            </div>
-          </div>
+        {/* Right Column: Consolidated Controls Side Panel */}
+        <div className="w-full lg:w-72 lg:shrink-0 p-4 overflow-y-auto bg-canvas">
+          <ContactControlsPanel
+            contact={contact}
+            chat={chat}
+            displayName={displayName}
+            userPhone={userPhone}
+            isEffectiveActive={isEffectiveActive}
+            isDefaultPolicy={isDefaultPolicy}
+            defaultPolicyActive={defaultPolicyActive}
+            isUpdatingBot={isUpdatingBot}
+            loadingChat={loadingChat}
+            isUpdatingPrompt={isUpdatingPrompt}
+            prompts={prompts}
+            handleToggleBot={handleToggleBot}
+            handleResetBot={handleResetBot}
+            handlePromptChange={handlePromptChange}
+          />
         </div>
       </div>
-    </main>
+    </div>
   );
 }
+
 

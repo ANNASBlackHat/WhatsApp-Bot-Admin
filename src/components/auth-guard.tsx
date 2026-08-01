@@ -1,15 +1,20 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
+import { ChatsProvider } from "@/lib/chats-context";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const params = useParams();
+
+  const rawWaId = params?.waId as string | undefined;
+  const waId = rawWaId ? decodeURIComponent(rawWaId) : "";
 
   const isLoginPage = pathname === "/login";
 
@@ -47,14 +52,17 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-canvas">
-      <Header />
-      <div className="flex flex-1 flex-col md:flex-row">
-        <Sidebar />
-        <div className="flex-1 overflow-x-hidden">{children}</div>
+    <ChatsProvider waId={waId}>
+      <div className="flex min-h-screen flex-col bg-canvas">
+        <Header />
+        <div className="flex flex-1 flex-col md:flex-row">
+          <Sidebar />
+          <div className="flex-1 min-w-0 overflow-x-hidden">{children}</div>
+        </div>
       </div>
-    </div>
+    </ChatsProvider>
   );
 }
+
 
 
