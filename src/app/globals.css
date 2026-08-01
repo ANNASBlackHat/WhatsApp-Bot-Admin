@@ -8,12 +8,30 @@
   --text-primary: #1C1C1A;
   --text-secondary: #6B6A62;
   --text-muted: #A6A499;
+
   --accent-active: #2F7A5C;
   --accent-active-bg: #E7F1EB;
   --accent-paused: #B9722F;
   --accent-paused-bg: #F5EBDF;
   --accent-danger: #B23B31;
   --accent-danger-bg: #F5E4E1;
+}
+
+.dark {
+  --canvas: #141412;
+  --surface: #1C1C19;
+  --surface-hover: #262622;
+  --border-color: #33322C;
+  --text-primary: #F4F3EE;
+  --text-secondary: #A6A499;
+  --text-muted: #737168;
+
+  --accent-active: #3CA87E;
+  --accent-active-bg: #1A362B;
+  --accent-paused: #E08A38;
+  --accent-paused-bg: #3A2616;
+  --accent-danger: #E05248;
+  --accent-danger-bg: #3D1B19;
 }
 
 @theme {
@@ -24,6 +42,7 @@
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
+
   --color-accent-active: var(--accent-active);
   --color-accent-active-bg: var(--accent-active-bg);
   --color-accent-paused: var(--accent-paused);
@@ -32,9 +51,22 @@
   --color-accent-danger-bg: var(--accent-danger-bg);
 }
 
+*, ::before, ::after {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    transition-duration: 0ms !important;
+  }
+}
+
 body {
   background-color: var(--canvas);
   color: var(--text-primary);
   font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
+
 

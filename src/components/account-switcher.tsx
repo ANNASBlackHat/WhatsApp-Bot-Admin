@@ -70,13 +70,13 @@ export function AccountSwitcher() {
   if (!currentWaId) return null;
 
   return (
-    <div className="flex items-center gap-1.5 border-l border-[#E7E5DD] pl-3">
-      <span className="text-[11px] font-medium text-[#6B6A62]">Account:</span>
+    <div className="flex items-center gap-1.5 border-l border-border-custom pl-3">
+      <span className="text-[11px] font-medium text-text-secondary">Account:</span>
       <select
         value={currentWaId}
         onChange={handleSwitch}
         disabled={loading}
-        className="rounded border border-[#E7E5DD] bg-[#FAFAF8] px-2.5 py-1 text-xs font-medium text-[#1C1C1A] transition-colors focus:border-[#1C1C1A] focus:bg-[#FFFFFF] focus:outline-none focus:ring-1 focus:ring-[#1C1C1A] disabled:opacity-50"
+        className="rounded border border-border-custom bg-canvas px-2.5 py-1 text-xs font-medium text-text-primary transition-colors focus:border-text-primary focus:bg-surface focus:outline-none focus:ring-1 focus:ring-text-primary disabled:opacity-50"
       >
         {/* If current account is not yet in fetched list, show placeholder */}
         {!accounts.some((a) => a.waId === currentWaId) && (
@@ -91,3 +91,4 @@ export function AccountSwitcher() {
     </div>
   );
 }
+

@@ -226,18 +226,18 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
       {/* Header section */}
       <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-medium text-[#1C1C1A]">Contacts</h1>
-          <p className="text-xs text-[#6B6A62]">
-            Account ID: <code className="font-mono text-[#1C1C1A] font-medium">{waId}</code>
+          <h1 className="text-xl font-medium text-text-primary">Contacts</h1>
+          <p className="text-xs text-text-secondary">
+            Account ID: <code className="font-mono text-text-primary font-medium">{waId}</code>
           </p>
         </div>
 
         {/* Global default policy info badge */}
-        <div className="inline-flex items-center gap-2 rounded-md border border-[#E7E5DD] bg-[#FFFFFF] px-3 py-1.5 text-xs text-[#6B6A62]">
+        <div className="inline-flex items-center gap-2 rounded-md border border-border-custom bg-surface px-3 py-1.5 text-xs text-text-secondary">
           <span>Default policy for new contacts:</span>
           <span
             className={`font-medium ${
-              defaultPolicyActive ? "text-[#2F7A5C]" : "text-[#B9722F]"
+              defaultPolicyActive ? "text-accent-active" : "text-accent-paused"
             }`}
           >
             {defaultPolicyActive ? "Auto-ON" : "Auto-OFF"}
@@ -246,21 +246,21 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
       </div>
 
       {quietStatus.active && (
-        <div className="mb-4 flex items-center justify-between rounded-lg border border-[#B9722F]/30 bg-[#F5EBDF] px-4 py-2.5 text-xs text-[#B9722F]">
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-accent-paused/30 bg-accent-paused-bg px-4 py-2.5 text-xs text-accent-paused">
           <div className="flex items-center gap-2">
             <span className="text-sm">🌙</span>
             <span className="font-medium">
               Scheduled Quiet Hours active (until {quietStatus.untilTime})
             </span>
           </div>
-          <span className="hidden sm:inline text-[11px] text-[#6B6A62]">
+          <span className="hidden sm:inline text-[11px] text-text-secondary">
             AI auto-replies temporarily paused across all contacts.
           </span>
         </div>
       )}
 
       {error && (
-        <div className="mb-6 rounded-lg border border-[#E7E5DD] bg-[#FAFAF8] p-4 text-xs text-[#B23B31]">
+        <div className="mb-6 rounded-lg border border-border-custom bg-canvas p-4 text-xs text-accent-danger">
           {error}
         </div>
       )}
@@ -270,7 +270,7 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {/* Search Input */}
         <div className="relative flex-1">
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#A6A499]">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-text-muted">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -280,13 +280,13 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
             placeholder="Search contacts by name, phone, or message content..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg border border-[#E7E5DD] bg-[#FFFFFF] py-2 pl-9 pr-9 text-xs text-[#1C1C1A] placeholder-[#A6A499] focus:border-[#1C1C1A] focus:outline-none focus:ring-1 focus:ring-[#1C1C1A]"
+            className="w-full rounded-lg border border-border-custom bg-surface py-2 pl-9 pr-9 text-xs text-text-primary placeholder-text-muted focus:border-text-primary focus:outline-none focus:ring-1 focus:ring-text-primary"
           />
           {searchTerm && (
             <button
               type="button"
               onClick={() => setSearchTerm("")}
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-[#6B6A62] hover:text-[#1C1C1A]"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-text-secondary hover:text-text-primary"
             >
               Clear
             </button>
@@ -294,14 +294,14 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
         </div>
 
         {/* Bot-Status Filter Tabs (US-4.2) */}
-        <div className="inline-flex rounded-lg border border-[#E7E5DD] bg-[#FFFFFF] p-1 text-xs">
+        <div className="inline-flex rounded-lg border border-border-custom bg-surface p-1 text-xs">
           <button
             type="button"
             onClick={() => setStatusFilter("all")}
             className={`rounded-md px-3 py-1 font-medium transition-colors ${
               statusFilter === "all"
-                ? "bg-[#F3F2ED] text-[#1C1C1A]"
-                : "text-[#6B6A62] hover:text-[#1C1C1A]"
+                ? "bg-surface-hover text-text-primary"
+                : "text-text-secondary hover:text-text-primary"
             }`}
           >
             All
@@ -311,8 +311,8 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
             onClick={() => setStatusFilter("active")}
             className={`rounded-md px-3 py-1 font-medium transition-colors ${
               statusFilter === "active"
-                ? "bg-[#E7F1EB] text-[#2F7A5C]"
-                : "text-[#6B6A62] hover:text-[#1C1C1A]"
+                ? "bg-accent-active-bg text-accent-active"
+                : "text-text-secondary hover:text-text-primary"
             }`}
           >
             Bot active
@@ -322,8 +322,8 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
             onClick={() => setStatusFilter("paused")}
             className={`rounded-md px-3 py-1 font-medium transition-colors ${
               statusFilter === "paused"
-                ? "bg-[#F5EBDF] text-[#B9722F]"
-                : "text-[#6B6A62] hover:text-[#1C1C1A]"
+                ? "bg-accent-paused-bg text-accent-paused"
+                : "text-text-secondary hover:text-text-primary"
             }`}
           >
             Bot paused
@@ -333,15 +333,15 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
 
       {/* Bulk Selection Action Bar (US-1.4) */}
       {selectedPhones.length > 0 && (
-        <div className="mb-4 flex items-center justify-between rounded-lg border border-[#E7E5DD] bg-[#FFFFFF] px-4 py-2.5 shadow-xs">
-          <div className="flex items-center gap-3 text-xs text-[#1C1C1A]">
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-border-custom bg-surface px-4 py-2.5 shadow-xs">
+          <div className="flex items-center gap-3 text-xs text-text-primary">
             <span className="font-medium">
               {selectedPhones.length} contact{selectedPhones.length > 1 ? "s" : ""} selected
             </span>
             <button
               type="button"
               onClick={handleSelectAll}
-              className="text-[#6B6A62] underline hover:text-[#1C1C1A]"
+              className="text-text-secondary underline hover:text-text-primary"
             >
               {selectedPhones.length === filteredChats.length
                 ? "Deselect all"
@@ -352,7 +352,7 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
           <button
             type="button"
             onClick={() => setShowBulkDisableModal(true)}
-            className="rounded border border-[#E7E5DD] bg-[#FAFAF8] px-3 py-1.5 text-xs font-medium text-[#B9722F] transition-colors hover:bg-[#F5EBDF]"
+            className="rounded border border-border-custom bg-canvas px-3 py-1.5 text-xs font-medium text-accent-paused transition-colors hover:bg-accent-paused-bg"
           >
             Pause bot for selected ({selectedPhones.length})
           </button>
@@ -360,37 +360,37 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
       )}
 
       {/* Contacts List Container */}
-      <div className="overflow-hidden rounded-lg border border-[#E7E5DD] bg-[#FFFFFF] shadow-xs">
+      <div className="overflow-hidden rounded-lg border border-border-custom bg-surface shadow-xs">
         {loading ? (
-          <div className="divide-y divide-[#E7E5DD]">
+          <div className="divide-y divide-border-custom">
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="flex h-16 items-center justify-between px-4 sm:px-6">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 animate-pulse rounded-full bg-[#F3F2ED]" />
+                  <div className="h-10 w-10 animate-pulse rounded-full bg-surface-hover" />
                   <div className="space-y-1.5">
-                    <div className="h-3.5 w-32 animate-pulse rounded bg-[#F3F2ED]" />
-                    <div className="h-3 w-48 animate-pulse rounded bg-[#F3F2ED]" />
+                    <div className="h-3.5 w-32 animate-pulse rounded bg-surface-hover" />
+                    <div className="h-3 w-48 animate-pulse rounded bg-surface-hover" />
                   </div>
                 </div>
-                <div className="h-6 w-20 animate-pulse rounded bg-[#F3F2ED]" />
+                <div className="h-6 w-20 animate-pulse rounded bg-surface-hover" />
               </div>
             ))}
           </div>
         ) : filteredChats.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="text-sm font-medium text-[#1C1C1A]">
+            <p className="text-sm font-medium text-text-primary">
               {searchTerm || statusFilter !== "all"
                 ? "No matching contacts found"
                 : "No conversations yet"}
             </p>
-            <p className="mt-1 text-xs text-[#6B6A62]">
+            <p className="mt-1 text-xs text-text-secondary">
               {searchTerm || statusFilter !== "all"
                 ? "Try adjusting your search query or status filter."
                 : "They'll show up here once someone messages your WhatsApp number."}
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-[#E7E5DD]">
+          <div className="divide-y divide-border-custom">
             {filteredChats.map((chat) => {
               const phone = chat.phone || chat.id;
               const contact = contactsMap[phone] || contactsMap[chat.id];
@@ -408,8 +408,8 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
                 <div
                   key={chat.id}
                   onClick={() => router.push(`/${encodeURIComponent(waId)}/contacts/${encodeURIComponent(phone)}`)}
-                  className={`group flex h-16 cursor-pointer items-center justify-between px-4 transition-colors hover:bg-[#F3F2ED] sm:px-6 ${
-                    isSelected ? "bg-[#F3F2ED]/60" : ""
+                  className={`group flex h-16 cursor-pointer items-center justify-between px-4 transition-colors hover:bg-surface-hover sm:px-6 ${
+                    isSelected ? "bg-surface-hover/60" : ""
                   }`}
                 >
                   {/* Left: Checkbox + Avatar + Name + Message preview */}
@@ -420,7 +420,7 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
                       checked={isSelected}
                       onClick={(e) => e.stopPropagation()}
                       onChange={(e) => handleSelectRow(phone, e)}
-                      className="h-4 w-4 rounded border-[#E7E5DD] text-[#1C1C1A] focus:ring-[#1C1C1A]"
+                      className="h-4 w-4 rounded border-border-custom text-text-primary focus:ring-text-primary"
                     />
 
                     {/* Avatar */}
@@ -429,10 +429,10 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
                       <img
                         src={contact.photo}
                         alt={displayName}
-                        className="h-10 w-10 shrink-0 rounded-full object-cover border border-[#E7E5DD]"
+                        className="h-10 w-10 shrink-0 rounded-full object-cover border border-border-custom"
                       />
                     ) : (
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F3F2ED] text-xs font-medium text-[#1C1C1A] border border-[#E7E5DD]">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-hover text-xs font-medium text-text-primary border border-border-custom">
                         {displayName.charAt(0).toUpperCase()}
                       </div>
                     )}
@@ -440,16 +440,16 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
                     {/* Contact Details */}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-medium text-[#1C1C1A]">
+                        <span className="truncate text-sm font-medium text-text-primary">
                           {displayName}
                         </span>
                         {chat.unreadCount > 0 && (
-                          <span className="inline-flex h-4 items-center justify-center rounded-full bg-[#2F7A5C] px-1.5 text-[10px] font-medium text-[#FFFFFF]">
+                          <span className="inline-flex h-4 items-center justify-center rounded-full bg-accent-active px-1.5 text-[10px] font-medium text-white">
                             {chat.unreadCount}
                           </span>
                         )}
                       </div>
-                      <p className="truncate text-xs text-[#6B6A62]">
+                      <p className="truncate text-xs text-text-secondary">
                         {truncate(chat.lastChatMessage || "No messages yet", 45)}
                       </p>
                     </div>
@@ -458,7 +458,7 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
                   {/* Right: Timestamp + Bot Status Badge + Inline Toggle */}
                   <div className="flex shrink-0 items-center gap-3 sm:gap-4">
                     {/* Timestamp */}
-                    <span className="hidden text-xs text-[#6B6A62] sm:inline">
+                    <span className="hidden text-xs text-text-secondary sm:inline">
                       {formatChatTime(chat.lastChatTime)}
                     </span>
 
@@ -466,13 +466,13 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
                     <div
                       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
                         isEffectiveActive
-                          ? "bg-[#E7F1EB] text-[#2F7A5C]"
-                          : "bg-[#F5EBDF] text-[#B9722F]"
+                          ? "bg-accent-active-bg text-accent-active"
+                          : "bg-accent-paused-bg text-accent-paused"
                       }`}
                     >
                       <span
                         className={`h-2 w-2 rounded-full ${
-                          isEffectiveActive ? "bg-[#2F7A5C]" : "bg-[#B9722F]"
+                          isEffectiveActive ? "bg-accent-active" : "bg-accent-paused"
                         }`}
                       />
                       <span>
@@ -499,16 +499,16 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
                                 defaultPolicyActive ? "Active" : "Paused"
                               }). Click to override.`
                         }
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#1C1C1A] focus:ring-offset-2 disabled:opacity-50 ${
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-text-primary focus:ring-offset-2 disabled:opacity-50 ${
                           chat.bot_active === true
-                            ? "bg-[#2F7A5C]"
+                            ? "bg-accent-active"
                             : chat.bot_active === false
-                            ? "bg-[#B9722F]"
-                            : "bg-[#A6A499]"
+                            ? "bg-accent-paused"
+                            : "bg-text-muted"
                         }`}
                       >
                         <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-[#FFFFFF] shadow-sm transition duration-150 ease-in-out ${
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-surface shadow-sm transition duration-150 ease-in-out ${
                             chat.bot_active === true
                               ? "translate-x-5"
                               : chat.bot_active === false
@@ -525,7 +525,7 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
                           disabled={isUpdating}
                           onClick={(e) => handleResetToDefault(e, phone)}
                           title="Reset to default policy"
-                          className="rounded p-1 text-[#A6A499] transition-colors hover:bg-[#E7E5DD] hover:text-[#1C1C1A]"
+                          className="rounded p-1 text-text-muted transition-colors hover:bg-border-custom hover:text-text-primary"
                         >
                           <svg
                             className="h-3.5 w-3.5"
@@ -553,14 +553,14 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
 
       {/* Bulk Disable Confirmation Modal (US-1.4) */}
       {showBulkDisableModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1C1C1A]/40 p-4">
-          <div className="w-full max-w-md rounded-lg border border-[#E7E5DD] bg-[#FFFFFF] p-6 shadow-lg">
-            <h3 className="text-base font-medium text-[#1C1C1A]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-text-primary/40 p-4">
+          <div className="w-full max-w-md rounded-lg border border-border-custom bg-surface p-6 shadow-lg">
+            <h3 className="text-base font-medium text-text-primary">
               Pause Bot for Selected Contacts?
             </h3>
-            <p className="mt-2 text-xs leading-relaxed text-[#6B6A62]">
-              Are you sure you want to set <code className="font-mono text-[#1C1C1A]">bot_active: false</code> for{" "}
-              <span className="font-medium text-[#1C1C1A]">
+            <p className="mt-2 text-xs leading-relaxed text-text-secondary">
+              Are you sure you want to set <code className="font-mono text-text-primary">bot_active: false</code> for{" "}
+              <span className="font-medium text-text-primary">
                 {selectedPhones.length} contact{selectedPhones.length > 1 ? "s" : ""}
               </span>
               ? The AI bot will stop auto-replying to messages from these contacts.
@@ -571,7 +571,7 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
                 type="button"
                 disabled={isBulkUpdating}
                 onClick={() => setShowBulkDisableModal(false)}
-                className="rounded border border-[#E7E5DD] bg-[#FAFAF8] px-4 py-2 text-xs font-medium text-[#1C1C1A] transition-colors hover:bg-[#F3F2ED]"
+                className="rounded border border-border-custom bg-canvas px-4 py-2 text-xs font-medium text-text-primary transition-colors hover:bg-surface-hover"
               >
                 Cancel
               </button>
@@ -579,7 +579,7 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
                 type="button"
                 disabled={isBulkUpdating}
                 onClick={handleBulkDisable}
-                className="rounded bg-[#B9722F] px-4 py-2 text-xs font-medium text-[#FFFFFF] transition-colors hover:bg-[#A36025]"
+                className="rounded bg-accent-paused px-4 py-2 text-xs font-medium text-white transition-colors hover:opacity-90"
               >
                 {isBulkUpdating ? "Pausing..." : `Pause Bot (${selectedPhones.length})`}
               </button>
@@ -590,3 +590,4 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
     </main>
   );
 }
+

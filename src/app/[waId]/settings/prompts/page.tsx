@@ -262,15 +262,15 @@ export default function PromptsPage({ params }: PageProps) {
           <div className="flex items-center gap-2">
             <Link
               href={`/${encodeURIComponent(waId)}/settings`}
-              className="text-xs text-[#6B6A62] hover:text-[#1C1C1A]"
+              className="text-xs text-text-secondary hover:text-text-primary"
             >
               ← Settings
             </Link>
-            <span className="text-xs text-[#A6A499]">\</span>
-            <h1 className="text-xl font-medium text-[#1C1C1A]">Prompt Library</h1>
+            <span className="text-xs text-text-muted">\</span>
+            <h1 className="text-xl font-medium text-text-primary">Prompt Library</h1>
           </div>
-          <p className="mt-1 text-xs text-[#6B6A62]">
-            Create and manage AI system prompt templates for account <code className="font-mono text-[#1C1C1A] font-medium">{waId}</code>
+          <p className="mt-1 text-xs text-text-secondary">
+            Create and manage AI system prompt templates for account <code className="font-mono text-text-primary font-medium">{waId}</code>
           </p>
         </div>
 
@@ -279,7 +279,7 @@ export default function PromptsPage({ params }: PageProps) {
             type="button"
             disabled={isSeeding}
             onClick={handleSeedNindiaPrompt}
-            className="inline-flex items-center gap-1.5 rounded-md border border-[#E7E5DD] bg-[#FFFFFF] px-3 py-1.5 text-xs font-medium text-[#2F7A5C] transition-colors hover:bg-[#E7F1EB]"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border-custom bg-surface px-3 py-1.5 text-xs font-medium text-accent-active transition-colors hover:bg-accent-active-bg"
           >
             {isSeeding ? "Seeding..." : "✨ Seed Default Nindia Prompt"}
           </button>
@@ -287,7 +287,7 @@ export default function PromptsPage({ params }: PageProps) {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-[#E7E5DD] bg-[#FAFAF8] p-4 text-xs text-[#B23B31]">
+        <div className="rounded-lg border border-border-custom bg-canvas p-4 text-xs text-accent-danger">
           {error}
         </div>
       )}
@@ -295,16 +295,16 @@ export default function PromptsPage({ params }: PageProps) {
       {/* Main Layout: Form (left/top) + List (right/bottom) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left Column: Form Card */}
-        <div className="rounded-lg border border-[#E7E5DD] bg-[#FFFFFF] p-5 shadow-xs lg:col-span-1 space-y-4">
-          <div className="flex items-center justify-between border-b border-[#E7E5DD] pb-3">
-            <h2 className="text-xs font-medium uppercase tracking-wider text-[#6B6A62]">
+        <div className="rounded-lg border border-border-custom bg-surface p-5 shadow-xs lg:col-span-1 space-y-4">
+          <div className="flex items-center justify-between border-b border-border-custom pb-3">
+            <h2 className="text-xs font-medium uppercase tracking-wider text-text-secondary">
               {isEditing ? "Edit System Prompt" : "Create New Prompt"}
             </h2>
             {isEditing && (
               <button
                 type="button"
                 onClick={resetForm}
-                className="text-xs text-[#6B6A62] underline hover:text-[#1C1C1A]"
+                className="text-xs text-text-secondary underline hover:text-text-primary"
               >
                 Cancel edit
               </button>
@@ -313,7 +313,7 @@ export default function PromptsPage({ params }: PageProps) {
 
           <form onSubmit={handleSavePrompt} className="space-y-4">
             <div>
-              <label htmlFor="prompt-name" className="block text-xs font-medium text-[#1C1C1A] mb-1">
+              <label htmlFor="prompt-name" className="block text-xs font-medium text-text-primary mb-1">
                 Prompt Name
               </label>
               <input
@@ -322,12 +322,12 @@ export default function PromptsPage({ params }: PageProps) {
                 placeholder="e.g. Nindia Persona v1"
                 value={nameInput}
                 onChange={(e) => setNameInput(e.target.value)}
-                className="w-full rounded border border-[#E7E5DD] bg-[#FAFAF8] px-3 py-2 text-xs text-[#1C1C1A] placeholder-[#A6A499] focus:border-[#1C1C1A] focus:bg-[#FFFFFF] focus:outline-none focus:ring-1 focus:ring-[#1C1C1A]"
+                className="w-full rounded border border-border-custom bg-canvas px-3 py-2 text-xs text-text-primary placeholder-text-muted focus:border-text-primary focus:bg-surface focus:outline-none focus:ring-1 focus:ring-text-primary"
               />
             </div>
 
             <div>
-              <label htmlFor="prompt-content" className="block text-xs font-medium text-[#1C1C1A] mb-1">
+              <label htmlFor="prompt-content" className="block text-xs font-medium text-text-primary mb-1">
                 System Instructions (Content)
               </label>
               <textarea
@@ -336,7 +336,7 @@ export default function PromptsPage({ params }: PageProps) {
                 placeholder="Enter multi-line system prompt instructions here..."
                 value={contentInput}
                 onChange={(e) => setContentInput(e.target.value)}
-                className="w-full rounded border border-[#E7E5DD] bg-[#FAFAF8] p-3 text-xs font-mono text-[#1C1C1A] placeholder-[#A6A499] focus:border-[#1C1C1A] focus:bg-[#FFFFFF] focus:outline-none focus:ring-1 focus:ring-[#1C1C1A]"
+                className="w-full rounded border border-border-custom bg-canvas p-3 text-xs font-mono text-text-primary placeholder-text-muted focus:border-text-primary focus:bg-surface focus:outline-none focus:ring-1 focus:ring-text-primary"
               />
             </div>
 
@@ -346,9 +346,9 @@ export default function PromptsPage({ params }: PageProps) {
                 type="checkbox"
                 checked={isDefaultInput}
                 onChange={(e) => setIsDefaultInput(e.target.checked)}
-                className="h-4 w-4 rounded border-[#E7E5DD] text-[#1C1C1A] focus:ring-[#1C1C1A]"
+                className="h-4 w-4 rounded border-border-custom text-text-primary focus:ring-text-primary"
               />
-              <label htmlFor="is-default-checkbox" className="text-xs text-[#1C1C1A]">
+              <label htmlFor="is-default-checkbox" className="text-xs text-text-primary">
                 Set as default system prompt for account
               </label>
             </div>
@@ -356,7 +356,7 @@ export default function PromptsPage({ params }: PageProps) {
             <button
               type="submit"
               disabled={isSaving}
-              className="w-full rounded bg-[#1C1C1A] py-2 text-xs font-medium text-[#FFFFFF] transition-colors hover:bg-[#333330] focus:outline-none focus:ring-2 focus:ring-[#1C1C1A] disabled:opacity-50"
+              className="w-full rounded bg-text-primary py-2 text-xs font-medium text-surface transition-colors hover:bg-text-primary/90 focus:outline-none focus:ring-2 focus:ring-text-primary disabled:opacity-50"
             >
               {isSaving ? "Saving..." : isEditing ? "Update Prompt" : "Create Prompt"}
             </button>
@@ -364,40 +364,40 @@ export default function PromptsPage({ params }: PageProps) {
         </div>
 
         {/* Right Column: Prompts List Container */}
-        <div className="overflow-hidden rounded-lg border border-[#E7E5DD] bg-[#FFFFFF] shadow-xs lg:col-span-2">
-          <div className="border-b border-[#E7E5DD] px-5 py-3 bg-[#FAFAF8]">
-            <h2 className="text-xs font-medium uppercase tracking-wider text-[#6B6A62]">
+        <div className="overflow-hidden rounded-lg border border-border-custom bg-surface shadow-xs lg:col-span-2">
+          <div className="border-b border-border-custom px-5 py-3 bg-canvas">
+            <h2 className="text-xs font-medium uppercase tracking-wider text-text-secondary">
               Prompts Library ({prompts.length})
             </h2>
           </div>
 
           {loading ? (
-            <div className="p-8 text-center text-xs text-[#6B6A62]">Loading prompts library...</div>
+            <div className="p-8 text-center text-xs text-text-secondary">Loading prompts library...</div>
           ) : prompts.length === 0 ? (
             <div className="p-12 text-center space-y-3">
-              <p className="text-sm font-medium text-[#1C1C1A]">No prompt templates created yet</p>
-              <p className="text-xs text-[#6B6A62]">
+              <p className="text-sm font-medium text-text-primary">No prompt templates created yet</p>
+              <p className="text-xs text-text-secondary">
                 Create a new prompt using the form on the left or seed the default Nindia persona.
               </p>
               <button
                 type="button"
                 disabled={isSeeding}
                 onClick={handleSeedNindiaPrompt}
-                className="inline-flex items-center gap-1.5 rounded bg-[#1C1C1A] px-4 py-2 text-xs font-medium text-[#FFFFFF] transition-colors hover:bg-[#333330]"
+                className="inline-flex items-center gap-1.5 rounded bg-text-primary px-4 py-2 text-xs font-medium text-surface transition-colors hover:bg-text-primary/90"
               >
                 {isSeeding ? "Seeding..." : "✨ Seed Default Nindia Prompt"}
               </button>
             </div>
           ) : (
-            <div className="divide-y divide-[#E7E5DD]">
+            <div className="divide-y divide-border-custom">
               {prompts.map((p) => (
-                <div key={p.id} className="p-5 space-y-3 transition-colors hover:bg-[#FAFAF8]">
+                <div key={p.id} className="p-5 space-y-3 transition-colors hover:bg-canvas">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-medium text-[#1C1C1A]">{p.name}</h3>
+                      <h3 className="text-sm font-medium text-text-primary">{p.name}</h3>
                       {p.is_default && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[#E7F1EB] px-2.5 py-0.5 text-[10px] font-medium text-[#2F7A5C]">
-                          <span className="h-1.5 w-1.5 rounded-full bg-[#2F7A5C]" />
+                        <span className="inline-flex items-center gap-1 rounded-full bg-accent-active-bg px-2.5 py-0.5 text-[10px] font-medium text-accent-active">
+                          <span className="h-1.5 w-1.5 rounded-full bg-accent-active" />
                           Default Prompt
                         </span>
                       )}
@@ -408,7 +408,7 @@ export default function PromptsPage({ params }: PageProps) {
                         <button
                           type="button"
                           onClick={() => handleSetAsDefault(p.id)}
-                          className="rounded border border-[#E7E5DD] bg-[#FFFFFF] px-2.5 py-1 text-[11px] font-medium text-[#2F7A5C] transition-colors hover:bg-[#E7F1EB]"
+                          className="rounded border border-border-custom bg-surface px-2.5 py-1 text-[11px] font-medium text-accent-active transition-colors hover:bg-accent-active-bg"
                         >
                           Make Default
                         </button>
@@ -417,7 +417,7 @@ export default function PromptsPage({ params }: PageProps) {
                       <button
                         type="button"
                         onClick={() => startEdit(p)}
-                        className="rounded border border-[#E7E5DD] bg-[#FFFFFF] px-2.5 py-1 text-[11px] font-medium text-[#6B6A62] transition-colors hover:bg-[#F3F2ED] hover:text-[#1C1C1A]"
+                        className="rounded border border-border-custom bg-surface px-2.5 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
                       >
                         Edit
                       </button>
@@ -425,18 +425,18 @@ export default function PromptsPage({ params }: PageProps) {
                       <button
                         type="button"
                         onClick={() => setDeleteTarget(p)}
-                        className="rounded border border-[#E7E5DD] bg-[#FFFFFF] px-2.5 py-1 text-[11px] font-medium text-[#B23B31] transition-colors hover:bg-[#F5E4E1]"
+                        className="rounded border border-border-custom bg-surface px-2.5 py-1 text-[11px] font-medium text-accent-danger transition-colors hover:bg-accent-danger-bg"
                       >
                         Delete
                       </button>
                     </div>
                   </div>
 
-                  <p className="whitespace-pre-wrap font-mono text-xs text-[#6B6A62] bg-[#FAFAF8] p-3 rounded border border-[#E7E5DD] max-h-36 overflow-y-auto">
+                  <p className="whitespace-pre-wrap font-mono text-xs text-text-secondary bg-canvas p-3 rounded border border-border-custom max-h-36 overflow-y-auto">
                     {p.content}
                   </p>
 
-                  <div className="flex items-center justify-between text-[11px] text-[#A6A499]">
+                  <div className="flex items-center justify-between text-[11px] text-text-muted">
                     <span>Modified: {formatChatTime(p.timeModified)}</span>
                     <span className="font-mono text-[10px]">ID: {p.id}</span>
                   </div>
@@ -449,13 +449,13 @@ export default function PromptsPage({ params }: PageProps) {
 
       {/* Delete Confirmation Modal */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1C1C1A]/40 p-4">
-          <div className="w-full max-w-md rounded-lg border border-[#E7E5DD] bg-[#FFFFFF] p-6 shadow-lg space-y-4">
-            <h3 className="text-base font-medium text-[#1C1C1A]">Delete Prompt Template?</h3>
-            <p className="text-xs leading-relaxed text-[#6B6A62]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-text-primary/40 p-4">
+          <div className="w-full max-w-md rounded-lg border border-border-custom bg-surface p-6 shadow-lg space-y-4">
+            <h3 className="text-base font-medium text-text-primary">Delete Prompt Template?</h3>
+            <p className="text-xs leading-relaxed text-text-secondary">
               Are you sure you want to delete prompt &quot;<strong>{deleteTarget.name}</strong>&quot;?
               {deleteTarget.is_default && (
-                <span className="block mt-1 text-[#B23B31] font-medium">
+                <span className="block mt-1 text-accent-danger font-medium">
                   Warning: You cannot delete the active default prompt without setting another prompt as default first.
                 </span>
               )}
@@ -466,7 +466,7 @@ export default function PromptsPage({ params }: PageProps) {
                 type="button"
                 disabled={isDeleting}
                 onClick={() => setDeleteTarget(null)}
-                className="rounded border border-[#E7E5DD] bg-[#FAFAF8] px-4 py-2 text-xs font-medium text-[#1C1C1A] transition-colors hover:bg-[#F3F2ED]"
+                className="rounded border border-border-custom bg-canvas px-4 py-2 text-xs font-medium text-text-primary transition-colors hover:bg-surface-hover"
               >
                 Cancel
               </button>
@@ -474,7 +474,7 @@ export default function PromptsPage({ params }: PageProps) {
                 type="button"
                 disabled={isDeleting || deleteTarget.is_default}
                 onClick={handleDeletePrompt}
-                className="rounded bg-[#B23B31] px-4 py-2 text-xs font-medium text-[#FFFFFF] transition-colors hover:bg-[#962F26] disabled:opacity-50"
+                className="rounded bg-accent-danger px-4 py-2 text-xs font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
               >
                 {isDeleting ? "Deleting..." : "Delete Prompt"}
               </button>
@@ -485,3 +485,4 @@ export default function PromptsPage({ params }: PageProps) {
     </main>
   );
 }
+

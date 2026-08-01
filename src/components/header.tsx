@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { AccountSwitcher } from "@/components/account-switcher";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function Header() {
   const { user, logout } = useAuth();
@@ -20,21 +21,26 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 w-full items-center justify-between border-b border-[#E7E5DD] bg-[#FFFFFF] px-4 sm:px-6">
+    <header className="sticky top-0 z-30 flex h-14 w-full items-center justify-between border-b border-border-custom bg-surface px-4 sm:px-6">
       <div className="flex items-center gap-3">
-        <h1 className="text-sm font-medium text-[#1C1C1A]">WhatsApp Bot Admin</h1>
-        {user && <AccountSwitcher />}
+        <h1 className="text-sm font-medium text-text-primary">WhatsApp Bot Admin</h1>
+        {user && (
+          <div className="flex items-center gap-2">
+            <AccountSwitcher />
+            <ThemeToggle />
+          </div>
+        )}
       </div>
 
       {user && (
         <div className="flex items-center gap-4">
-          <span className="text-xs text-[#6B6A62]" title={user.email || ""}>
+          <span className="text-xs text-text-secondary" title={user.email || ""}>
             {user.email}
           </span>
           <button
             onClick={handleLogout}
             disabled={isLoggingOut}
-            className="inline-flex items-center justify-center rounded border border-[#E7E5DD] bg-transparent px-3 py-1.5 text-xs font-medium text-[#1C1C1A] transition-colors hover:bg-[#F3F2ED] focus:outline-none focus:ring-2 focus:ring-[#1C1C1A] focus:ring-offset-2 disabled:opacity-50"
+            className="inline-flex items-center justify-center rounded border border-border-custom bg-transparent px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-text-primary focus:ring-offset-2 disabled:opacity-50"
           >
             {isLoggingOut ? "Logging out..." : "Log out"}
           </button>
@@ -43,3 +49,4 @@ export function Header() {
     </header>
   );
 }
+

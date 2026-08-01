@@ -299,7 +299,7 @@ export default function ContactDetailPage({ params }: PageProps) {
       <div className="mb-4 flex items-center justify-between">
         <Link
           href={`/${encodeURIComponent(waId)}`}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-[#6B6A62] transition-colors hover:text-[#1C1C1A]"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -311,26 +311,26 @@ export default function ContactDetailPage({ params }: PageProps) {
       {/* Main Grid: Thread Viewer (left) + Controls Side Panel (right) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left 2 Cols: Chat Thread Viewer */}
-        <div className="flex h-[75vh] flex-col overflow-hidden rounded-lg border border-[#E7E5DD] bg-[#FFFFFF] shadow-xs lg:col-span-2">
+        <div className="flex h-[75vh] flex-col overflow-hidden rounded-lg border border-border-custom bg-surface shadow-xs lg:col-span-2">
           {/* Thread Header */}
-          <div className="flex items-center justify-between border-b border-[#E7E5DD] bg-[#FAFAF8] px-4 py-3 sm:px-6">
+          <div className="flex items-center justify-between border-b border-border-custom bg-canvas px-4 py-3 sm:px-6">
             <div className="flex items-center gap-3">
               {contact?.photo ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={contact.photo}
                   alt={displayName}
-                  className="h-9 w-9 rounded-full object-cover border border-[#E7E5DD]"
+                  className="h-9 w-9 rounded-full object-cover border border-border-custom"
                 />
               ) : (
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F3F2ED] text-xs font-medium text-[#1C1C1A] border border-[#E7E5DD]">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-hover text-xs font-medium text-text-primary border border-border-custom">
                   {displayName.charAt(0).toUpperCase()}
                 </div>
               )}
 
               <div>
-                <h2 className="text-sm font-medium text-[#1C1C1A]">{displayName}</h2>
-                <p className="text-[11px] font-mono text-[#6B6A62]">{userPhone}</p>
+                <h2 className="text-sm font-medium text-text-primary">{displayName}</h2>
+                <p className="text-[11px] font-mono text-text-secondary">{userPhone}</p>
               </div>
             </div>
 
@@ -341,25 +341,25 @@ export default function ContactDetailPage({ params }: PageProps) {
                   type="button"
                   disabled={isMarkingRead}
                   onClick={handleMarkAsRead}
-                  className="inline-flex items-center gap-1 rounded border border-[#E7E5DD] bg-[#FFFFFF] px-2.5 py-1 text-xs font-medium text-[#1C1C1A] transition-colors hover:bg-[#F3F2ED]"
+                  className="inline-flex items-center gap-1 rounded border border-border-custom bg-surface px-2.5 py-1 text-xs font-medium text-text-primary transition-colors hover:bg-surface-hover"
                 >
                   ✓ Mark read ({chat?.unreadCount})
                 </button>
               ) : (
-                <span className="text-[11px] text-[#A6A499]">Read</span>
+                <span className="text-[11px] text-text-muted">Read</span>
               )}
 
               {/* Current bot status badge in header */}
               <div
                 className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
                   isEffectiveActive
-                    ? "bg-[#E7F1EB] text-[#2F7A5C]"
-                    : "bg-[#F5EBDF] text-[#B9722F]"
+                    ? "bg-accent-active-bg text-accent-active"
+                    : "bg-accent-paused-bg text-accent-paused"
                 }`}
               >
                 <span
                   className={`h-2 w-2 rounded-full ${
-                    isEffectiveActive ? "bg-[#2F7A5C]" : "bg-[#B9722F]"
+                    isEffectiveActive ? "bg-accent-active" : "bg-accent-paused"
                   }`}
                 />
                 <span>{isEffectiveActive ? "Bot Active" : "Bot Paused"}</span>
@@ -368,17 +368,17 @@ export default function ContactDetailPage({ params }: PageProps) {
           </div>
 
           {/* Messages list area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 sm:p-6 bg-[#FAFAF8]">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 sm:p-6 bg-canvas">
             {loadingMessages ? (
               <div className="flex h-full items-center justify-center">
                 <div className="flex flex-col items-center gap-2">
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#1C1C1A] border-t-transparent" />
-                  <span className="text-xs text-[#6B6A62]">Loading messages...</span>
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-text-primary border-t-transparent" />
+                  <span className="text-xs text-text-secondary">Loading messages...</span>
                 </div>
               </div>
             ) : messages.length === 0 ? (
               <div className="flex h-full items-center justify-center text-center">
-                <p className="text-xs text-[#6B6A62]">No messages found in this chat thread.</p>
+                <p className="text-xs text-text-secondary">No messages found in this chat thread.</p>
               </div>
             ) : (
               messages.map((msg) => {
@@ -394,16 +394,16 @@ export default function ContactDetailPage({ params }: PageProps) {
                     <div
                       className={`max-w-[85%] sm:max-w-[75%] rounded-lg px-3.5 py-2.5 text-xs shadow-2xs ${
                         isCustomer
-                          ? "bg-[#FFFFFF] text-[#1C1C1A] border border-[#E7E5DD]"
-                          : "bg-[#E7F1EB] text-[#1C1C1A] border border-[#2F7A5C]/20"
+                          ? "bg-surface text-text-primary border border-border-custom"
+                          : "bg-accent-active-bg text-text-primary border border-accent-active/20"
                       }`}
                     >
                       {/* Sender label */}
-                      <div className="mb-1 flex items-center justify-between gap-3 text-[10px] font-medium text-[#6B6A62]">
+                      <div className="mb-1 flex items-center justify-between gap-3 text-[10px] font-medium text-text-secondary">
                         <span>{isCustomer ? displayName : "Bot / Admin"}</span>
                         <div className="flex items-center gap-1.5">
                           {msg.status === "pending" && (
-                            <span className="font-sans text-[9px] text-[#B9722F]">
+                            <span className="font-sans text-[9px] text-accent-paused">
                               ⏳ Pending
                             </span>
                           )}
@@ -414,7 +414,7 @@ export default function ContactDetailPage({ params }: PageProps) {
 
                       {/* Quoted message placeholder */}
                       {msg.messageQuoted && (
-                        <div className="mb-2 rounded border-l-2 border-[#6B6A62] bg-[#F3F2ED] p-1.5 text-[11px] text-[#6B6A62]">
+                        <div className="mb-2 rounded border-l-2 border-text-secondary bg-surface-hover p-1.5 text-[11px] text-text-secondary">
                           {truncate(msg.messageQuoted, 80)}
                         </div>
                       )}
@@ -428,7 +428,7 @@ export default function ContactDetailPage({ params }: PageProps) {
 
                       {/* Inline Media Rendering */}
                       {msg.imgUrl && (
-                        <div className="mt-2 overflow-hidden rounded-md border border-[#E7E5DD]">
+                        <div className="mt-2 overflow-hidden rounded-md border border-border-custom">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={msg.imgUrl}
@@ -445,7 +445,7 @@ export default function ContactDetailPage({ params }: PageProps) {
                             <video
                               controls
                               poster={msg.thumb}
-                              className="max-h-64 w-full rounded-md border border-[#E7E5DD] bg-[#1C1C1A]"
+                              className="max-h-64 w-full rounded-md border border-border-custom bg-text-primary"
                             >
                               <source src={msg.fileUrl} />
                               Your browser does not support video playback.
@@ -455,7 +455,7 @@ export default function ContactDetailPage({ params }: PageProps) {
                               href={msg.fileUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 rounded border border-[#E7E5DD] bg-[#FFFFFF] px-2.5 py-1.5 text-[11px] font-medium text-[#2F7A5C] hover:bg-[#F3F2ED]"
+                              className="inline-flex items-center gap-1.5 rounded border border-border-custom bg-surface px-2.5 py-1.5 text-[11px] font-medium text-accent-active hover:bg-surface-hover"
                             >
                               📎 Download attachment
                             </a>
@@ -464,7 +464,7 @@ export default function ContactDetailPage({ params }: PageProps) {
                       )}
 
                       {msg.thumb && !msg.imgUrl && !msg.fileUrl && (
-                        <div className="mt-2 overflow-hidden rounded-md border border-[#E7E5DD]">
+                        <div className="mt-2 overflow-hidden rounded-md border border-border-custom">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={msg.thumb}
@@ -485,10 +485,10 @@ export default function ContactDetailPage({ params }: PageProps) {
           {/* Manual Reply Input Bar (writes to wa_bot/recent-chat/all) */}
           <form
             onSubmit={handleSendManualReply}
-            className="border-t border-[#E7E5DD] bg-[#FFFFFF] p-3 sm:px-4"
+            className="border-t border-border-custom bg-surface p-3 sm:px-4"
           >
             {replyStatus && (
-              <div className="mb-2 text-[11px] font-medium text-[#2F7A5C]">
+              <div className="mb-2 text-[11px] font-medium text-accent-active">
                 {replyStatus}
               </div>
             )}
@@ -498,12 +498,12 @@ export default function ContactDetailPage({ params }: PageProps) {
                 placeholder="Type a manual reply to send via WhatsApp..."
                 value={replyMessage}
                 onChange={(e) => setReplyMessage(e.target.value)}
-                className="flex-1 rounded-md border border-[#E7E5DD] bg-[#FAFAF8] px-3 py-2 text-xs text-[#1C1C1A] placeholder-[#A6A499] focus:border-[#1C1C1A] focus:bg-[#FFFFFF] focus:outline-none focus:ring-1 focus:ring-[#1C1C1A]"
+                className="flex-1 rounded-md border border-border-custom bg-canvas px-3 py-2 text-xs text-text-primary placeholder-text-muted focus:border-text-primary focus:bg-surface focus:outline-none focus:ring-1 focus:ring-text-primary"
               />
               <button
                 type="submit"
                 disabled={isSendingReply || !replyMessage.trim()}
-                className="inline-flex items-center justify-center rounded-md bg-[#1C1C1A] px-4 py-2 text-xs font-medium text-[#FFFFFF] transition-colors hover:bg-[#333330] focus:outline-none focus:ring-2 focus:ring-[#1C1C1A] disabled:opacity-40"
+                className="inline-flex items-center justify-center rounded-md bg-text-primary px-4 py-2 text-xs font-medium text-surface transition-colors hover:bg-text-primary/90 focus:outline-none focus:ring-2 focus:ring-text-primary disabled:opacity-40"
               >
                 {isSendingReply ? "Sending..." : "Send"}
               </button>
@@ -514,8 +514,8 @@ export default function ContactDetailPage({ params }: PageProps) {
         {/* Right 1 Col: Controls Side Panel */}
         <div className="space-y-6">
           {/* Contact Info Card */}
-          <div className="rounded-lg border border-[#E7E5DD] bg-[#FFFFFF] p-5 shadow-xs">
-            <h3 className="text-xs font-medium uppercase tracking-wider text-[#6B6A62]">
+          <div className="rounded-lg border border-border-custom bg-surface p-5 shadow-xs">
+            <h3 className="text-xs font-medium uppercase tracking-wider text-text-secondary">
               Contact Details
             </h3>
 
@@ -525,36 +525,36 @@ export default function ContactDetailPage({ params }: PageProps) {
                 <img
                   src={contact.photo}
                   alt={displayName}
-                  className="h-12 w-12 rounded-full object-cover border border-[#E7E5DD]"
+                  className="h-12 w-12 rounded-full object-cover border border-border-custom"
                 />
               ) : (
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F3F2ED] text-sm font-medium text-[#1C1C1A] border border-[#E7E5DD]">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-hover text-sm font-medium text-text-primary border border-border-custom">
                   {displayName.charAt(0).toUpperCase()}
                 </div>
               )}
 
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-[#1C1C1A]">
+                <p className="truncate text-sm font-medium text-text-primary">
                   {displayName}
                 </p>
-                <p className="font-mono text-xs text-[#6B6A62]">{userPhone}</p>
+                <p className="font-mono text-xs text-text-secondary">{userPhone}</p>
               </div>
             </div>
           </div>
 
           {/* Bot Control Card */}
-          <div className="rounded-lg border border-[#E7E5DD] bg-[#FFFFFF] p-5 shadow-xs">
-            <h3 className="text-xs font-medium uppercase tracking-wider text-[#6B6A62]">
+          <div className="rounded-lg border border-border-custom bg-surface p-5 shadow-xs">
+            <h3 className="text-xs font-medium uppercase tracking-wider text-text-secondary">
               Bot Control
             </h3>
 
             <div className="mt-4 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-medium text-[#1C1C1A]">
+                  <p className="text-xs font-medium text-text-primary">
                     {isEffectiveActive ? "Bot Active" : "Bot Paused"}
                   </p>
-                  <p className="text-[11px] text-[#6B6A62]">
+                  <p className="text-[11px] text-text-secondary">
                     {isDefaultPolicy
                       ? `Using default policy (${defaultPolicyActive ? "Active" : "Paused"})`
                       : "Explicit per-contact override"}
@@ -565,16 +565,16 @@ export default function ContactDetailPage({ params }: PageProps) {
                   type="button"
                   disabled={isUpdatingBot || loadingChat}
                   onClick={handleToggleBot}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#1C1C1A] focus:ring-offset-2 disabled:opacity-50 ${
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-text-primary focus:ring-offset-2 disabled:opacity-50 ${
                     chat?.bot_active === true
-                      ? "bg-[#2F7A5C]"
+                      ? "bg-accent-active"
                       : chat?.bot_active === false
-                      ? "bg-[#B9722F]"
-                      : "bg-[#A6A499]"
+                      ? "bg-accent-paused"
+                      : "bg-text-muted"
                   }`}
                 >
                   <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-[#FFFFFF] shadow-sm transition duration-150 ease-in-out ${
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-surface shadow-sm transition duration-150 ease-in-out ${
                       chat?.bot_active === true
                         ? "translate-x-5"
                         : chat?.bot_active === false
@@ -590,7 +590,7 @@ export default function ContactDetailPage({ params }: PageProps) {
                   type="button"
                   disabled={isUpdatingBot || loadingChat}
                   onClick={handleResetBot}
-                  className="w-full rounded border border-[#E7E5DD] bg-[#FAFAF8] py-1.5 text-xs font-medium text-[#6B6A62] transition-colors hover:bg-[#F3F2ED] hover:text-[#1C1C1A]"
+                  className="w-full rounded border border-border-custom bg-canvas py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
                 >
                   Reset to default policy
                 </button>
@@ -599,13 +599,13 @@ export default function ContactDetailPage({ params }: PageProps) {
           </div>
 
           {/* Prompt Selector Card */}
-          <div className="rounded-lg border border-[#E7E5DD] bg-[#FFFFFF] p-5 shadow-xs">
-            <h3 className="text-xs font-medium uppercase tracking-wider text-[#6B6A62]">
+          <div className="rounded-lg border border-border-custom bg-surface p-5 shadow-xs">
+            <h3 className="text-xs font-medium uppercase tracking-wider text-text-secondary">
               Assigned Prompt
             </h3>
 
             <div className="mt-4 space-y-3">
-              <label htmlFor="prompt-select" className="text-xs text-[#1C1C1A]">
+              <label htmlFor="prompt-select" className="text-xs text-text-primary">
                 Select system prompt template
               </label>
 
@@ -614,7 +614,7 @@ export default function ContactDetailPage({ params }: PageProps) {
                 disabled={isUpdatingPrompt || loadingChat}
                 value={chat?.custom_prompt_id || "default"}
                 onChange={handlePromptChange}
-                className="w-full rounded border border-[#E7E5DD] bg-[#FFFFFF] px-3 py-2 text-xs text-[#1C1C1A] focus:border-[#1C1C1A] focus:outline-none focus:ring-1 focus:ring-[#1C1C1A] disabled:opacity-50"
+                className="w-full rounded border border-border-custom bg-surface px-3 py-2 text-xs text-text-primary focus:border-text-primary focus:outline-none focus:ring-1 focus:ring-text-primary disabled:opacity-50"
               >
                 <option value="default">
                   -- Use Default Prompt --
@@ -626,7 +626,7 @@ export default function ContactDetailPage({ params }: PageProps) {
                 ))}
               </select>
 
-              <p className="text-[11px] text-[#6B6A62]">
+              <p className="text-[11px] text-text-secondary">
                 {chat?.custom_prompt_id
                   ? "Using custom assigned prompt for this conversation."
                   : "No custom prompt assigned. Falling back to default system prompt."}
@@ -638,3 +638,4 @@ export default function ContactDetailPage({ params }: PageProps) {
     </main>
   );
 }
+

@@ -45,16 +45,17 @@ export default function RootPage() {
   return (
     <main className="flex min-h-[60vh] items-center justify-center p-6 text-center">
       {error ? (
-        <div className="max-w-md rounded-lg border border-[#E7E5DD] bg-[#FFFFFF] p-6 shadow-xs space-y-2">
-          <p className="text-sm font-medium text-[#B9722F]">Account Resolution Notice</p>
-          <p className="text-xs text-[#6B6A62]">{error}</p>
+        <div className="max-w-md rounded-lg border border-border-custom bg-surface p-6 shadow-xs space-y-2">
+          <p className="text-sm font-medium text-accent-paused">Account Resolution Notice</p>
+          <p className="text-xs text-text-secondary">{error}</p>
         </div>
       ) : (
         <div className="flex flex-col items-center gap-2">
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#1C1C1A] border-t-transparent" />
-          <p className="text-xs text-[#6B6A62]">Resolving WhatsApp account...</p>
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-text-primary border-t-transparent" />
+          <p className="text-xs text-text-secondary">Resolving WhatsApp account...</p>
         </div>
       )}
     </main>
   );
 }
+

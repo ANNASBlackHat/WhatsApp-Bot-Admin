@@ -53,7 +53,7 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="w-full border-b border-[#E7E5DD] bg-[#FFFFFF] md:w-56 md:shrink-0 md:border-r md:border-b-0">
+    <aside className="w-full border-b border-border-custom bg-surface md:w-56 md:shrink-0 md:border-r md:border-b-0">
       <nav className="flex flex-row p-2 md:flex-col md:gap-1 md:p-3">
         {navItems.map((item) => {
           const isActive =
@@ -69,11 +69,11 @@ export function Sidebar() {
               href={item.href}
               className={`flex flex-1 items-center gap-2.5 rounded-md px-3 py-2 text-xs font-medium transition-colors md:flex-none ${
                 isActive
-                  ? "border-l-2 border-[#1C1C1A] bg-[#F3F2ED] text-[#1C1C1A]"
-                  : "text-[#6B6A62] hover:bg-[#F3F2ED] hover:text-[#1C1C1A]"
+                  ? "border-l-2 border-text-primary bg-surface-hover text-text-primary"
+                  : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
               }`}
             >
-              <span className={isActive ? "text-[#1C1C1A]" : "text-[#6B6A62]"}>
+              <span className={isActive ? "text-text-primary" : "text-text-secondary"}>
                 {item.icon}
               </span>
               <span>{item.name}</span>
@@ -84,3 +84,4 @@ export function Sidebar() {
     </aside>
   );
 }
+

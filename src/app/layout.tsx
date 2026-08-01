@@ -28,8 +28,29 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-[#FAFAF8] text-[#1C1C1A]">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var match = document.cookie.match(new RegExp('(?:^|; )theme=([^;]*)'));
+                  var theme = match ? decodeURIComponent(match[1]) : (localStorage.getItem('theme') || 'system');
+                  var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                  if (isDark) {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body className="min-h-full flex flex-col bg-canvas text-text-primary">
         <AuthProvider>
           <AuthGuard>{children}</AuthGuard>
         </AuthProvider>
@@ -37,4 +58,5 @@ export default function RootLayout({
     </html>
   );
 }
+
 

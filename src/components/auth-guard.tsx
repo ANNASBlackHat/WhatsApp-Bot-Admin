@@ -25,10 +25,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-[#FAFAF8]">
+      <div className="flex min-h-screen w-full items-center justify-center bg-canvas">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#1C1C1A] border-t-transparent" />
-          <p className="text-xs font-medium text-[#6B6A62]">Checking authentication...</p>
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-text-primary border-t-transparent" />
+          <p className="text-xs font-medium text-text-secondary">Checking authentication...</p>
         </div>
       </div>
     );
@@ -43,11 +43,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (isLoginPage) {
-    return <div className="min-h-screen w-full bg-[#FAFAF8]">{children}</div>;
+    return <div className="min-h-screen w-full bg-canvas">{children}</div>;
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#FAFAF8]">
+    <div className="flex min-h-screen flex-col bg-canvas">
       <Header />
       <div className="flex flex-1 flex-col md:flex-row">
         <Sidebar />
@@ -56,4 +56,5 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
 
