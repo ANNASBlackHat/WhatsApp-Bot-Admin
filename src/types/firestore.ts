@@ -137,6 +137,8 @@ export interface Message {
   userType: UserType;
   /** Message delivery status (e.g. `"sent"`). */
   status: string;
+  /** Message type (e.g. `"audio"`, `"image"`, `"video"`, `"document"`). */
+  type?: string;
   /** Unique message ID. */
   messageId: string;
 

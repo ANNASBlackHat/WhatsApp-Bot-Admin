@@ -31,11 +31,18 @@ import {
   WaAccount,
   WithId,
 } from "@/types/firestore";
-import { formatTimestamp, truncate, parseAudioMessage, correlateMessages } from "@/lib/utils";
+import {
+  formatTimestamp,
+  truncate,
+  parseAudioMessage,
+  correlateMessages,
+  formatDateDivider,
+} from "@/lib/utils";
 import { useChats } from "@/lib/chats-context";
 import { ContactsListPane } from "@/components/contacts-list-pane";
 import { ContactControlsPanel } from "@/components/contact-controls-panel";
 import { ImageLightbox } from "@/components/image-lightbox";
+import { FormattedMessageText } from "@/components/formatted-message-text";
 
 interface PageProps {
   params: Promise<{ waId: string; userPhone: string }>;
@@ -69,9 +76,13 @@ export default function ContactDetailPage({ params }: PageProps) {
   const [isSendingReply, setIsSendingReply] = useState<boolean>(false);
   const [isMarkingRead, setIsMarkingRead] = useState<boolean>(false);
   const [replyStatus, setReplyStatus] = useState<string | null>(null);
+  const [showNewMessageBtn, setShowNewMessageBtn] = useState<boolean>(false);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isNearBottomRef = useRef<boolean>(true);
+  const prevMessageCountRef = useRef<number>(0);
 
   // Auto-grow textarea height up to max-h-36 (~6 lines)
   useEffect(() => {
@@ -82,13 +93,42 @@ export default function ContactDetailPage({ params }: PageProps) {
     }
   }, [replyMessage]);
 
-  // Auto-scroll to bottom of messages thread
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  // Scroll container scroll listener to detect if admin is near bottom
+  const handleScroll = () => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const isNear = distanceToBottom < 120;
+    isNearBottomRef.current = isNear;
+    if (isNear) {
+      setShowNewMessageBtn(false);
+    }
   };
 
+  // Auto-scroll to bottom of messages thread
+  const scrollToBottom = (smooth = false) => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: smooth ? "smooth" : "auto",
+      });
+    } else if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: smooth ? "smooth" : "auto" });
+    }
+  };
+
+  // Smart auto-scroll effect on new messages
   useEffect(() => {
-    scrollToBottom();
+    const isNewMessage = messages.length > prevMessageCountRef.current;
+    const isInitial = prevMessageCountRef.current === 0;
+    prevMessageCountRef.current = messages.length;
+
+    if (isInitial || isNearBottomRef.current) {
+      scrollToBottom();
+      setShowNewMessageBtn(false);
+    } else if (isNewMessage) {
+      setShowNewMessageBtn(true);
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -432,7 +472,11 @@ export default function ContactDetailPage({ params }: PageProps) {
           </div>
 
           {/* Messages list area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 sm:p-6 bg-canvas">
+          <div
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            className="relative flex-1 overflow-y-auto p-4 space-y-3 sm:p-6 bg-canvas"
+          >
             {loadingMessages ? (
               <div className="flex h-full items-center justify-center">
                 <div className="flex flex-col items-center gap-2">
@@ -445,148 +489,217 @@ export default function ContactDetailPage({ params }: PageProps) {
                 <p className="text-xs text-text-secondary">No messages found in this chat thread.</p>
               </div>
             ) : (
-              messages.map((msg) => {
+              messages.map((msg, index) => {
                 const isCustomer = msg.userType === "customer";
                 const audioInfo = parseAudioMessage(msg);
 
+                const currentDateStr = formatDateDivider(msg.timeMillis);
+                const prevMsg = index > 0 ? messages[index - 1] : null;
+                const prevDateStr = prevMsg ? formatDateDivider(prevMsg.timeMillis) : null;
+                const showDateDivider = Boolean(currentDateStr && currentDateStr !== prevDateStr);
+
+                // Media unavailable fallbacks
+                const isImageExpected = msg.type === "image";
+                const isVideoExpected = msg.type === "video";
+                const isDocumentExpected = msg.type === "document";
+                const isThumbExpected = msg.type === "thumbnail";
+
+                const isImageUnavailable = isImageExpected && !msg.imgUrl;
+                const isVideoOrDocUnavailable = (isVideoExpected || isDocumentExpected) && !msg.fileUrl;
+                const isThumbUnavailable = isThumbExpected && !msg.thumb;
+
                 return (
-                  <div
-                    key={msg.id}
-                    className={`flex flex-col ${
-                      isCustomer ? "items-start" : "items-end"
-                    }`}
-                  >
+                  <React.Fragment key={msg.id}>
+                    {showDateDivider && (
+                      <div className="my-3 flex items-center justify-center">
+                        <span className="rounded-full bg-surface-hover px-3 py-1 text-[10px] font-medium text-text-secondary border border-border-custom shadow-2xs">
+                          {currentDateStr}
+                        </span>
+                      </div>
+                    )}
+
                     <div
-                      className={`max-w-[85%] sm:max-w-[75%] min-w-0 rounded-lg px-3.5 py-2.5 text-xs shadow-2xs break-words [overflow-wrap:anywhere] ${
-                        isCustomer
-                          ? "bg-surface text-text-primary border border-border-custom"
-                          : "bg-accent-active-bg text-text-primary border border-accent-active/20"
+                      className={`flex flex-col ${
+                        isCustomer ? "items-start" : "items-end"
                       }`}
                     >
-                      {/* Sender label */}
-                      <div className="mb-1 flex items-center justify-between gap-3 text-[10px] font-medium text-text-secondary">
-                        <span>{isCustomer ? displayName : "Bot / Admin"}</span>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {msg.status === "pending" && (
-                            <span className="font-sans text-[9px] text-accent-paused">
-                              ⏳ Pending
-                            </span>
-                          )}
-                          {msg.status === "unconfirmed" && (
-                            <span
-                              className="font-sans text-[9px] text-accent-danger"
-                              title="Delivery confirmation not received from server within 60s"
-                            >
-                              ⚠️ Not confirmed
-                            </span>
-                          )}
-                          <span>{formatTimestamp(msg.timeMillis)}</span>
-                        </div>
-                      </div>
-
-                      {/* Quoted message placeholder */}
-                      {msg.messageQuoted && (
-                        <div className="mb-2 rounded border-l-2 border-text-secondary bg-surface-hover p-1.5 text-[11px] text-text-secondary break-words [overflow-wrap:anywhere]">
-                          {truncate(msg.messageQuoted, 80)}
-                        </div>
-                      )}
-
-                      {/* Audio Message Rendering */}
-                      {audioInfo.isAudio ? (
-                        <div className="space-y-1.5 min-w-0">
-                          {audioInfo.displayText && (
-                            <p className="whitespace-pre-wrap leading-relaxed break-words [overflow-wrap:anywhere]">
-                              {audioInfo.displayText}
-                            </p>
-                          )}
-                          {audioInfo.audioUrl ? (
-                            <div className="mt-1.5 max-w-full">
-                              <audio
-                                controls
-                                src={audioInfo.audioUrl}
-                                className="w-full min-w-[200px] max-w-xs rounded border border-border-custom bg-canvas text-text-primary"
+                      <div
+                        className={`max-w-[85%] sm:max-w-[75%] min-w-0 rounded-lg px-3.5 py-2.5 text-xs shadow-2xs break-words [overflow-wrap:anywhere] ${
+                          isCustomer
+                            ? "bg-surface text-text-primary border border-border-custom"
+                            : "bg-accent-active-bg text-text-primary border border-accent-active/20"
+                        }`}
+                      >
+                        {/* Sender label */}
+                        <div className="mb-1 flex items-center justify-between gap-3 text-[10px] font-medium text-text-secondary">
+                          <span>{isCustomer ? displayName : "Bot / Admin"}</span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {msg.status === "pending" && (
+                              <span className="font-sans text-[9px] text-accent-paused">
+                                ⏳ Pending
+                              </span>
+                            )}
+                            {msg.status === "unconfirmed" && (
+                              <span
+                                className="font-sans text-[9px] text-accent-danger"
+                                title="Delivery confirmation not received from server within 60s"
                               >
-                                Your browser does not support audio playback.
-                              </audio>
-                            </div>
-                          ) : (
-                            <div className="inline-flex items-center gap-1.5 rounded border border-border-custom bg-canvas px-3 py-1.5 text-[11px] text-text-muted">
-                              <span>🎵</span>
-                              <span>Audio message unavailable</span>
-                            </div>
-                          )}
+                                ⚠️ Not confirmed
+                              </span>
+                            )}
+                            <span>{formatTimestamp(msg.timeMillis)}</span>
+                          </div>
                         </div>
-                      ) : (
-                        /* Text Message */
-                        msg.message && (
-                          <p className="whitespace-pre-wrap leading-relaxed break-words [overflow-wrap:anywhere]">
-                            {msg.message}
-                          </p>
-                        )
-                      )}
 
-                      {/* Inline Image Media Rendering (if not audio) */}
-                      {!audioInfo.isAudio && msg.imgUrl && (
-                        <div
-                          onClick={() => setLightboxImage(msg.imgUrl!)}
-                          title="Click to view larger image"
-                          className="mt-2 overflow-hidden rounded-md border border-border-custom cursor-pointer group"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={msg.imgUrl}
-                            alt="Attached image"
-                            className="max-h-64 w-auto rounded-md object-contain group-hover:opacity-90 transition-opacity"
-                            loading="lazy"
-                          />
-                        </div>
-                      )}
+                        {/* Quoted message placeholder */}
+                        {msg.messageQuoted && (
+                          <div className="mb-2 rounded border-l-2 border-text-secondary bg-surface-hover p-1.5 text-[11px] text-text-secondary break-words [overflow-wrap:anywhere]">
+                            <FormattedMessageText text={truncate(msg.messageQuoted, 80)} />
+                          </div>
+                        )}
 
-                      {/* Video or Document File Rendering (if not audio) */}
-                      {!audioInfo.isAudio && msg.fileUrl && (
-                        <div className="mt-2">
-                          {msg.fileUrl.match(/\.(mp4|webm|mov|mkv)(\?.*)?$/i) ? (
-                            <video
-                              controls
-                              poster={msg.thumb}
-                              className="max-h-64 w-full rounded-md border border-border-custom bg-text-primary"
-                            >
-                              <source src={msg.fileUrl} />
-                              Your browser does not support video playback.
-                            </video>
-                          ) : (
-                            <a
-                              href={msg.fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 rounded border border-border-custom bg-surface px-2.5 py-1.5 text-[11px] font-medium text-accent-active hover:bg-surface-hover"
-                            >
-                              📎 Download attachment
-                            </a>
-                          )}
-                        </div>
-                      )}
+                        {/* Audio Message Rendering */}
+                        {audioInfo.isAudio ? (
+                          <div className="space-y-1.5 min-w-0">
+                            {audioInfo.displayText && (
+                              <FormattedMessageText text={audioInfo.displayText} />
+                            )}
+                            {audioInfo.audioUrl ? (
+                              <div className="mt-1.5 max-w-full">
+                                <audio
+                                  controls
+                                  src={audioInfo.audioUrl}
+                                  className="w-full min-w-[200px] max-w-xs rounded border border-border-custom bg-canvas text-text-primary"
+                                >
+                                  Your browser does not support audio playback.
+                                </audio>
+                              </div>
+                            ) : (
+                              <div className="inline-flex items-center gap-1.5 rounded border border-border-custom bg-canvas px-3 py-1.5 text-[11px] text-text-muted">
+                                <span>🎵</span>
+                                <span>Media unavailable</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          /* Text Message */
+                          msg.message && <FormattedMessageText text={msg.message} />
+                        )}
 
-                      {!audioInfo.isAudio && msg.thumb && !msg.imgUrl && !msg.fileUrl && (
-                        <div
-                          onClick={() => setLightboxImage(msg.thumb!)}
-                          title="Click to view larger image"
-                          className="mt-2 overflow-hidden rounded-md border border-border-custom cursor-pointer group"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={msg.thumb}
-                            alt="Thumbnail preview"
-                            className="max-h-48 w-auto rounded-md object-contain group-hover:opacity-90 transition-opacity"
-                            loading="lazy"
-                          />
-                        </div>
-                      )}
+                        {/* Inline Image Media Rendering (if not audio) */}
+                        {!audioInfo.isAudio && (
+                          <>
+                            {msg.imgUrl ? (
+                              <div
+                                onClick={() => setLightboxImage(msg.imgUrl!)}
+                                title="Click to view larger image"
+                                className="mt-2 overflow-hidden rounded-md border border-border-custom cursor-pointer group"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={msg.imgUrl}
+                                  alt="Attached image"
+                                  className="max-h-64 w-auto rounded-md object-contain group-hover:opacity-90 transition-opacity"
+                                  loading="lazy"
+                                />
+                              </div>
+                            ) : (
+                              isImageUnavailable && (
+                                <div className="mt-2 inline-flex items-center gap-1.5 rounded border border-border-custom bg-canvas px-3 py-1.5 text-[11px] text-text-muted">
+                                  <span>📷</span>
+                                  <span>Media unavailable</span>
+                                </div>
+                              )
+                            )}
+                          </>
+                        )}
+
+                        {/* Video or Document File Rendering (if not audio) */}
+                        {!audioInfo.isAudio && (
+                          <>
+                            {msg.fileUrl ? (
+                              <div className="mt-2">
+                                {msg.fileUrl.match(/\.(mp4|webm|mov|mkv)(\?.*)?$/i) ? (
+                                  <video
+                                    controls
+                                    poster={msg.thumb}
+                                    className="max-h-64 w-full rounded-md border border-border-custom bg-text-primary"
+                                  >
+                                    <source src={msg.fileUrl} />
+                                    Your browser does not support video playback.
+                                  </video>
+                                ) : (
+                                  <a
+                                    href={msg.fileUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 rounded border border-border-custom bg-surface px-2.5 py-1.5 text-[11px] font-medium text-accent-active hover:bg-surface-hover"
+                                  >
+                                    📎 Download attachment
+                                  </a>
+                                )}
+                              </div>
+                            ) : (
+                              isVideoOrDocUnavailable && (
+                                <div className="mt-2 inline-flex items-center gap-1.5 rounded border border-border-custom bg-canvas px-3 py-1.5 text-[11px] text-text-muted">
+                                  <span>📎</span>
+                                  <span>Media unavailable</span>
+                                </div>
+                              )
+                            )}
+                          </>
+                        )}
+
+                        {!audioInfo.isAudio && (
+                          <>
+                            {msg.thumb && !msg.imgUrl && !msg.fileUrl ? (
+                              <div
+                                onClick={() => setLightboxImage(msg.thumb!)}
+                                title="Click to view larger image"
+                                className="mt-2 overflow-hidden rounded-md border border-border-custom cursor-pointer group"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={msg.thumb}
+                                  alt="Thumbnail preview"
+                                  className="max-h-48 w-auto rounded-md object-contain group-hover:opacity-90 transition-opacity"
+                                  loading="lazy"
+                                />
+                              </div>
+                            ) : (
+                              isThumbUnavailable && (
+                                <div className="mt-2 inline-flex items-center gap-1.5 rounded border border-border-custom bg-canvas px-3 py-1.5 text-[11px] text-text-muted">
+                                  <span>🖼️</span>
+                                  <span>Media unavailable</span>
+                                </div>
+                              )
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </React.Fragment>
                 );
               })
             )}
+
+            {/* Jump to bottom new message indicator button */}
+            {showNewMessageBtn && (
+              <div className="sticky bottom-2 flex justify-center z-20 pointer-events-none">
+                <button
+                  type="button"
+                  onClick={() => {
+                    scrollToBottom(true);
+                    setShowNewMessageBtn(false);
+                  }}
+                  className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-text-primary px-3.5 py-1.5 text-[11px] font-medium text-surface shadow-md hover:bg-text-primary/90 transition-all duration-150 ease-out motion-reduce:transition-none"
+                >
+                  <span>↓</span>
+                  <span>New messages</span>
+                </button>
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
 

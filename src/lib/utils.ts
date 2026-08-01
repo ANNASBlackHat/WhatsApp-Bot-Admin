@@ -260,6 +260,37 @@ export function correlateMessages<T extends MessageItem>(
   };
 }
 
+/**
+ * Format a timestamp into a date divider string ("Today", "Yesterday", or "MMM D, YYYY").
+ */
+export function formatDateDivider(timeMillis: number): string {
+  if (!timeMillis) return "";
+  const date = new Date(timeMillis);
+  const now = new Date();
+
+  const isToday =
+    date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear();
+
+  if (isToday) return "Today";
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday =
+    date.getDate() === yesterday.getDate() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getFullYear() === yesterday.getFullYear();
+
+  if (isYesterday) return "Yesterday";
+
+  if (date.getFullYear() === now.getFullYear()) {
+    return date.toLocaleDateString([], { month: "short", day: "numeric" });
+  }
+
+  return date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+}
+
 
 
 
