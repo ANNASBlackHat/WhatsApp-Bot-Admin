@@ -13,7 +13,7 @@ interface ContactsListPaneProps {
   selectedUserPhone?: string | null;
 }
 
-export function ContactsListPane({
+export const ContactsListPane = React.memo(function ContactsListPane({
   waId,
   chats,
   contactsMap,
@@ -232,7 +232,7 @@ export function ContactsListPane({
       </div>
     </div>
   );
-}
+});
 
 function formatTime(timestamp?: number): string {
   if (!timestamp) return "";

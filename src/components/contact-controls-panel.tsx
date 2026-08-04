@@ -20,7 +20,7 @@ interface ContactControlsPanelProps {
   handlePromptChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
 }
 
-export function ContactControlsPanel({
+export const ContactControlsPanel = React.memo(function ContactControlsPanel({
   contact,
   chat,
   displayName,
@@ -158,4 +158,4 @@ export function ContactControlsPanel({
       </div>
     </div>
   );
-}
+});
