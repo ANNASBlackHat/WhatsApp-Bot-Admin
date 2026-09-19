@@ -75,6 +75,7 @@ export default function ContactDetailPage({ params }: PageProps) {
 
   const [isMarkingRead, setIsMarkingRead] = useState<boolean>(false);
   const [showNewMessageBtn, setShowNewMessageBtn] = useState<boolean>(false);
+  const [isControlsOpen, setIsControlsOpen] = useState<boolean>(true);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -389,6 +390,27 @@ export default function ContactDetailPage({ params }: PageProps) {
                 />
                 <span>{isEffectiveActive ? "Bot Active" : "Bot Paused"}</span>
               </div>
+
+              {/* Right panel toggle */}
+              <button
+                type="button"
+                onClick={() => setIsControlsOpen((v) => !v)}
+                title={isControlsOpen ? "Hide details panel" : "Show details panel"}
+                aria-expanded={isControlsOpen}
+                className="inline-flex items-center justify-center rounded border border-border-custom bg-surface px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
+              >
+                <svg
+                  className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                    isControlsOpen ? "rotate-0" : "rotate-180"
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                </svg>
+              </button>
             </div>
           </div>
 
@@ -629,23 +651,31 @@ export default function ContactDetailPage({ params }: PageProps) {
         </div>
 
         {/* Right Column: Consolidated Controls Side Panel */}
-        <div className="w-full lg:w-72 lg:shrink-0 p-4 overflow-y-auto bg-canvas">
-          <ContactControlsPanel
-            contact={contact}
-            chat={chat}
-            displayName={displayName}
-            userPhone={userPhone}
-            isEffectiveActive={isEffectiveActive}
-            isDefaultPolicy={isDefaultPolicy}
-            defaultPolicyActive={defaultPolicyActive}
-            isUpdatingBot={isUpdatingBot}
-            loadingChat={loadingChat}
-            isUpdatingPrompt={isUpdatingPrompt}
-            prompts={prompts}
-            handleToggleBot={handleToggleBot}
-            handleResetBot={handleResetBot}
-            handlePromptChange={handlePromptChange}
-          />
+        <div
+          className={`overflow-hidden bg-canvas transition-all duration-200 ease-in-out ${
+            isControlsOpen
+              ? "w-full p-4 lg:w-72 lg:shrink-0 overflow-y-auto opacity-100"
+              : "hidden lg:block lg:w-0 lg:shrink-0 lg:p-0 lg:border-0 opacity-0 pointer-events-none"
+          }`}
+        >
+          <div className="w-full lg:w-64">
+            <ContactControlsPanel
+              contact={contact}
+              chat={chat}
+              displayName={displayName}
+              userPhone={userPhone}
+              isEffectiveActive={isEffectiveActive}
+              isDefaultPolicy={isDefaultPolicy}
+              defaultPolicyActive={defaultPolicyActive}
+              isUpdatingBot={isUpdatingBot}
+              loadingChat={loadingChat}
+              isUpdatingPrompt={isUpdatingPrompt}
+              prompts={prompts}
+              handleToggleBot={handleToggleBot}
+              handleResetBot={handleResetBot}
+              handlePromptChange={handlePromptChange}
+            />
+          </div>
         </div>
       </div>
 
