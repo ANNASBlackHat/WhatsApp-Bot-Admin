@@ -13,7 +13,7 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
   const resolvedParams = use(params);
   const waId = decodeURIComponent(resolvedParams.waId);
 
-  const { account, chats, contactsMap, loading, error } = useChats();
+  const { account, chats, contactsMap, loading, error, totalChatsCount, hasMoreChats, loadingMoreChats, loadMoreChats } = useChats();
 
   const quietStatus = checkQuietHoursActive(account?.quiet_hours);
 
@@ -27,6 +27,10 @@ export default function ContactsListPage({ params }: ContactsListPageProps) {
           contactsMap={contactsMap}
           account={account}
           loading={loading}
+          totalCount={totalChatsCount}
+          hasMore={hasMoreChats}
+          loadingMore={loadingMoreChats}
+          onLoadMore={loadMoreChats}
         />
       </div>
 

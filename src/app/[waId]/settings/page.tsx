@@ -2,10 +2,10 @@
 
 import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { collection, doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
+import { collection, doc, getCountFromServer, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { waAccountDoc, chatCollection } from "@/lib/firestore-paths";
-import { Chat, WaAccount, WithId } from "@/types/firestore";
+import { WaAccount } from "@/types/firestore";
 
 interface PageProps {
   params: Promise<{ waId: string }>;
@@ -16,7 +16,13 @@ export default function SettingsPage({ params }: PageProps) {
   const waId = decodeURIComponent(resolvedParams.waId);
 
   const [account, setAccount] = useState<WaAccount | null>(null);
-  const [chats, setChats] = useState<WithId<Chat>[]>([]);
+
+  // Contact counts via server aggregations (no document downloads) — only
+  // used for the kill-switch copy ("ALL N contacts") and the active-contact
+  // confirmation count.
+  const [totalChatsCount, setTotalChatsCount] = useState<number>(0);
+  const [explicitActiveCount, setExplicitActiveCount] = useState<number>(0);
+  const [explicitPausedCount, setExplicitPausedCount] = useState<number>(0);
 
   const [loading, setLoading] = useState<boolean>(Boolean(waId));
   const [updatingGlobal, setUpdatingGlobal] = useState<boolean>(false);
@@ -34,6 +40,8 @@ export default function SettingsPage({ params }: PageProps) {
   useEffect(() => {
 
     if (!waId) return;
+
+    const signal = { cancelled: false };
 
     // 1. Account document listener
     const unsubAccount = onSnapshot(
@@ -60,35 +68,39 @@ export default function SettingsPage({ params }: PageProps) {
     );
 
 
-    // 2. Chats metadata for counting affected active contacts
-    const unsubChats = onSnapshot(
-      collection(db, chatCollection(waId)),
-      (snapshot) => {
-        const list: WithId<Chat>[] = snapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...(docSnap.data() as Chat),
-        }));
-        setChats(list);
-      }
-    );
+    // 2. Contact counts for the kill-switch copy (aggregations only).
+    const chatsCol = collection(db, chatCollection(waId));
+    Promise.all([
+      getCountFromServer(chatsCol),
+      getCountFromServer(query(chatsCol, where("bot_active", "==", true))),
+      getCountFromServer(query(chatsCol, where("bot_active", "==", false))),
+    ])
+      .then(([totalSnap, activeSnap, pausedSnap]) => {
+        if (signal.cancelled) return;
+        setTotalChatsCount(totalSnap.data().count);
+        setExplicitActiveCount(activeSnap.data().count);
+        setExplicitPausedCount(pausedSnap.data().count);
+      })
+      .catch((err) => console.error("Settings counts aggregation error:", err));
 
     return () => {
+      signal.cancelled = true;
       unsubAccount();
-      unsubChats();
     };
   }, [waId]);
 
   const isGlobalActive = account?.is_bot_active ?? true;
   const defaultPolicyActive = account?.default_bot_active_for_new_contacts ?? false;
 
-  // Calculate active contacts affected by global kill switch
-  const activeContactsCount = chats.filter((chat) => {
-    if (chat.bot_active === true) return true;
-    if (chat.bot_active === null || chat.bot_active === undefined) {
-      return defaultPolicyActive;
-    }
-    return false;
-  }).length;
+  // Active contacts affected by the global kill switch. Docs with bot_active
+  // unset match neither == true nor == false, so they fall back to the
+  // default policy.
+  const defaultCount = Math.max(
+    0,
+    totalChatsCount - explicitActiveCount - explicitPausedCount
+  );
+  const activeContactsCount =
+    explicitActiveCount + (defaultPolicyActive ? defaultCount : 0);
 
   // Trigger kill switch confirmation modal
   const handleInitiateGlobalToggle = (nextState: boolean) => {
@@ -191,7 +203,7 @@ export default function SettingsPage({ params }: PageProps) {
               </h2>
             </div>
             <p className="text-xs text-text-primary leading-relaxed">
-              Bound to <code className="font-mono bg-surface px-1 py-0.5 rounded text-[11px]">wa_bot/{waId}.is_bot_active</code>. Turning this OFF immediately stops AI auto-replies across <strong>ALL {chats.length} contacts</strong> on this account.
+              Bound to <code className="font-mono bg-surface px-1 py-0.5 rounded text-[11px]">wa_bot/{waId}.is_bot_active</code>. Turning this OFF immediately stops AI auto-replies across <strong>ALL {totalChatsCount} contacts</strong> on this account.
             </p>
           </div>
 

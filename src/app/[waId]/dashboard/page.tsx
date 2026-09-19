@@ -2,11 +2,23 @@
 
 import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { collection, doc, onSnapshot } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getAggregateFromServer,
+  getCountFromServer,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  sum,
+  where,
+} from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { getDocCacheFirst } from "@/lib/firestore-cache";
 import {
   chatCollection,
-  contactCollection,
+  contactDoc,
   waAccountDoc,
 } from "@/lib/firestore-paths";
 import { Chat, Contact, WaAccount, WithId } from "@/types/firestore";
@@ -16,60 +28,153 @@ interface PageProps {
   params: Promise<{ waId: string }>;
 }
 
+interface DashboardCounts {
+  total: number;
+  explicitActive: number;
+  explicitPaused: number;
+  unread: number;
+  today: number;
+}
+
+/**
+ * Server-side metric aggregates. count()/sum() transfer no documents, so the
+ * metric cards stay exact regardless of account size.
+ */
+async function fetchDashboardCounts(waId: string): Promise<DashboardCounts> {
+  const chatsCol = collection(db, chatCollection(waId));
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const [totalSnap, activeSnap, pausedSnap, unreadSnap, todaySnap] =
+    await Promise.all([
+      getCountFromServer(chatsCol),
+      getCountFromServer(query(chatsCol, where("bot_active", "==", true))),
+      getCountFromServer(query(chatsCol, where("bot_active", "==", false))),
+      getAggregateFromServer(chatsCol, { total: sum("unreadCount") }),
+      getCountFromServer(
+        query(chatsCol, where("lastChatTime", ">=", startOfToday.getTime()))
+      ),
+    ]);
+  return {
+    total: totalSnap.data().count,
+    explicitActive: activeSnap.data().count,
+    explicitPaused: pausedSnap.data().count,
+    unread: unreadSnap.data().total ?? 0,
+    today: todaySnap.data().count,
+  };
+}
+
 export default function DashboardPage({ params }: PageProps) {
   const resolvedParams = use(params);
   const waId = decodeURIComponent(resolvedParams.waId);
 
   const [account, setAccount] = useState<WaAccount | null>(null);
-  const [chats, setChats] = useState<WithId<Chat>[]>([]);
+  const [topChats, setTopChats] = useState<WithId<Chat>[]>([]);
   const [contactsMap, setContactsMap] = useState<Record<string, Contact>>({});
   const [loading, setLoading] = useState<boolean>(Boolean(waId));
+
+  // Server-side aggregates (no document downloads) for the metric cards.
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [explicitActiveCount, setExplicitActiveCount] = useState<number>(0);
+  const [explicitPausedCount, setExplicitPausedCount] = useState<number>(0);
+  const [totalUnreadCount, setTotalUnreadCount] = useState<number>(0);
+  const [todayCount, setTodayCount] = useState<number>(0);
 
   useEffect(() => {
     if (!waId) return;
 
-    // 1. Account doc listener
+    const signal = { cancelled: false };
+
+    // Metric aggregates via promise chains (same pattern as settings page).
+    const applyCounts = () => {
+      fetchDashboardCounts(waId)
+        .then((c) => {
+          if (signal.cancelled) return;
+          setTotalCount(c.total);
+          setExplicitActiveCount(c.explicitActive);
+          setExplicitPausedCount(c.explicitPaused);
+          setTotalUnreadCount(c.unread);
+          setTodayCount(c.today);
+        })
+        .catch((err) => console.error("Dashboard counts aggregation error:", err));
+    };
+
+    // 1. Account doc listener (tiny single doc)
     const unsubAccount = onSnapshot(doc(db, waAccountDoc(waId)), (snapshot) => {
+      if (signal.cancelled) return;
       if (snapshot.exists()) {
         setAccount(snapshot.data() as WaAccount);
       }
     });
 
-    // 2. Contacts listener (for names & photos)
-    const unsubContacts = onSnapshot(
-      collection(db, contactCollection(waId)),
-      (snapshot) => {
-        const map: Record<string, Contact> = {};
-        snapshot.docs.forEach((docSnap) => {
-          map[docSnap.id] = docSnap.data() as Contact;
-        });
-        setContactsMap(map);
-      }
-    );
+    // 2. Metric aggregates (one-shot + refreshed on list updates below)
+    applyCounts();
 
-    // 3. Chats listener
-    const unsubChats = onSnapshot(
+    // 3. Top-5 live query — only 5 chat docs + their 5 contact docs are ever
+    // downloaded, regardless of account size.
+    const topQuery = query(
       collection(db, chatCollection(waId)),
+      orderBy("lastChatTime", "desc"),
+      limit(5)
+    );
+    let contactSeq = 0;
+    const unsubTop = onSnapshot(
+      topQuery,
       (snapshot) => {
+        if (signal.cancelled) return;
         const list: WithId<Chat>[] = snapshot.docs.map((docSnap) => ({
           id: docSnap.id,
           ...(docSnap.data() as Chat),
         }));
 
         list.sort((a, b) => (b.lastChatTime || 0) - (a.lastChatTime || 0));
-        setChats(list);
+        setTopChats(list);
         setLoading(false);
+
+        // Names/photos for just these 5, cache-first.
+        const seq = ++contactSeq;
+        void (async () => {
+          try {
+            const results = await Promise.all(
+              list.map(async (chat) => {
+                const phone = chat.phone || chat.id;
+                // Prefer the shared contacts cache; fall back to a cached doc read.
+                const cached = await getDocCacheFirst<Contact>(
+                  doc(db, contactDoc(waId, phone))
+                ).catch(() => null);
+                return { phone, id: chat.id, contact: cached?.data ?? null };
+              })
+            );
+            if (signal.cancelled || seq !== contactSeq) return;
+            const map: Record<string, Contact> = {};
+            for (const r of results) {
+              if (r.contact) {
+                map[r.phone] = r.contact;
+                map[r.id] = r.contact;
+              }
+            }
+            // Merge (don't clobber): the full contacts listener is gone.
+            setContactsMap((prev) => ({ ...prev, ...map }));
+          } catch (err) {
+            console.error("Dashboard contacts hydration error:", err);
+          }
+        })();
+
+        // Keep metric cards near-live without full-collection listeners.
+        if (snapshot.docChanges().length > 0) {
+          applyCounts();
+        }
       },
       (err) => {
-        console.error("Dashboard chats snapshot error:", err);
+        console.error("Dashboard top-chats snapshot error:", err);
+        if (signal.cancelled) return;
         setLoading(false);
       }
     );
 
     return () => {
+      signal.cancelled = true;
       unsubAccount();
-      unsubContacts();
-      unsubChats();
+      unsubTop();
     };
   }, [waId]);
 
@@ -77,39 +182,18 @@ export default function DashboardPage({ params }: PageProps) {
   const isGlobalActive = account?.is_bot_active ?? true;
   const quietStatus = checkQuietHoursActive(account?.quiet_hours);
 
+  // Derive effective counts: explicit true + default-policy fallback.
+  // Docs with bot_active unset match neither == true nor == false, so
+  // defaultCount = total - explicitTrue - explicitFalse.
+  // The global kill switch pauses everything when OFF (same as before).
+  const defaultCount = Math.max(0, totalCount - explicitActiveCount - explicitPausedCount);
+  const effectiveActive =
+    explicitActiveCount + (defaultPolicyActive ? defaultCount : 0);
+  const activeBotsCount = isGlobalActive ? effectiveActive : 0;
+  const pausedBotsCount = totalCount - activeBotsCount;
+  const chatsTodayCount = todayCount;
 
-  // Calculate metrics
-  let activeBotsCount = 0;
-  let pausedBotsCount = 0;
-  let totalUnreadCount = 0;
-  let chatsTodayCount = 0;
-
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const todayTimestamp = startOfToday.getTime();
-
-  chats.forEach((chat) => {
-    const isDefaultPolicy = chat.bot_active === null || chat.bot_active === undefined;
-    const isEffectiveActive = isDefaultPolicy
-      ? defaultPolicyActive
-      : Boolean(chat.bot_active);
-
-    if (isEffectiveActive && isGlobalActive) {
-      activeBotsCount++;
-    } else {
-      pausedBotsCount++;
-    }
-
-    if (chat.unreadCount) {
-      totalUnreadCount += chat.unreadCount;
-    }
-
-    if (chat.lastChatTime && chat.lastChatTime >= todayTimestamp) {
-      chatsTodayCount++;
-    }
-  });
-
-  const topActiveContacts = chats.slice(0, 5);
+  const topActiveContacts = topChats;
 
   return (
     <main className="mx-auto max-w-5xl p-4 sm:p-6 space-y-6">

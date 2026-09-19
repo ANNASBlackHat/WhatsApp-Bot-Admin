@@ -11,6 +11,11 @@ interface ContactsListPaneProps {
   account: WaAccount | null;
   loading: boolean;
   selectedUserPhone?: string | null;
+  /** Exact server-side total; when set and larger than `chats.length`, more pages exist. */
+  totalCount?: number | null;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }
 
 export const ContactsListPane = React.memo(function ContactsListPane({
@@ -20,6 +25,10 @@ export const ContactsListPane = React.memo(function ContactsListPane({
   account,
   loading,
   selectedUserPhone,
+  totalCount,
+  hasMore,
+  loadingMore,
+  onLoadMore,
 }: ContactsListPaneProps) {
   const [filter, setFilter] = useState<"all" | "active" | "paused">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -74,7 +83,9 @@ export const ContactsListPane = React.memo(function ContactsListPane({
           <div>
             <h1 className="text-sm font-semibold text-text-primary">Contacts</h1>
             <p className="text-[11px] text-text-secondary">
-              {chats.length} conversation{chats.length === 1 ? "" : "s"}
+              {totalCount != null && totalCount > chats.length
+                ? `Showing ${chats.length} of ${totalCount} conversations`
+                : `${totalCount ?? chats.length} conversation${(totalCount ?? chats.length) === 1 ? "" : "s"}`}
             </p>
           </div>
           <span className="text-[11px] font-mono text-text-muted">{waId}</span>
@@ -230,6 +241,24 @@ export const ContactsListPane = React.memo(function ContactsListPane({
           })
         )}
       </div>
+
+      {/* Pagination footer — limit-growth: widens the live query, stays realtime */}
+      {hasMore && onLoadMore && !loading && (
+        <div className="border-t border-border-custom p-3">
+          <button
+            type="button"
+            onClick={onLoadMore}
+            disabled={loadingMore}
+            className="w-full rounded border border-border-custom bg-canvas py-1.5 text-[11px] font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary disabled:opacity-50"
+          >
+            {loadingMore
+              ? "Loading more..."
+              : totalCount != null
+                ? `Load more (${chats.length} of ${totalCount})`
+                : "Load more"}
+          </button>
+        </div>
+      )}
     </div>
   );
 });

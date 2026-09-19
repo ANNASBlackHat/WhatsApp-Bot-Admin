@@ -15,6 +15,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { getDocCacheFirst, getQueryCacheFirst } from "@/lib/firestore-cache";
 import {
   chatDoc,
   contactDoc,
@@ -49,6 +50,13 @@ interface PageProps {
   params: Promise<{ waId: string; userPhone: string }>;
 }
 
+/**
+ * Messages loaded per page in a thread. Same limit-growth pattern as the
+ * chats list: "Load older messages" widens the `limit()` so realtime stays
+ * correct while the initial download stays small.
+ */
+const MESSAGE_PAGE_SIZE = 50;
+
 export default function ContactDetailPage({ params }: PageProps) {
   const resolvedParams = use(params);
   const waId = decodeURIComponent(resolvedParams.waId);
@@ -59,6 +67,10 @@ export default function ContactDetailPage({ params }: PageProps) {
     contactsMap,
     account: sharedAccount,
     loading: loadingSharedChats,
+    totalChatsCount,
+    hasMoreChats,
+    loadingMoreChats,
+    loadMoreChats,
   } = useChats();
 
   const [chat, setChat] = useState<Chat | null>(null);
@@ -76,6 +88,23 @@ export default function ContactDetailPage({ params }: PageProps) {
   const [isMarkingRead, setIsMarkingRead] = useState<boolean>(false);
   const [showNewMessageBtn, setShowNewMessageBtn] = useState<boolean>(false);
   const [isControlsOpen, setIsControlsOpen] = useState<boolean>(true);
+
+  // Per-thread message page size (resets naturally per contact, no reset
+  // effect needed since the key includes userPhone).
+  const threadKey = `${waId}::${userPhone}`;
+  const [messageLimitByThread, setMessageLimitByThread] = useState<Record<string, number>>({});
+  const messageLimit = messageLimitByThread[threadKey] ?? MESSAGE_PAGE_SIZE;
+  const [messagesHasMore, setMessagesHasMore] = useState<boolean>(false);
+  const [loadingMoreMessages, setLoadingMoreMessages] = useState<boolean>(false);
+
+  const handleLoadOlderMessages = () => {
+    if (!messagesHasMore || loadingMoreMessages) return;
+    setLoadingMoreMessages(true);
+    setMessageLimitByThread((prev) => ({
+      ...prev,
+      [threadKey]: (prev[threadKey] ?? MESSAGE_PAGE_SIZE) + MESSAGE_PAGE_SIZE,
+    }));
+  };
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -131,8 +160,61 @@ export default function ContactDetailPage({ params }: PageProps) {
       return;
     }
 
+    const signal = { cancelled: false };
+
+    // Shared message-list mapping (cache snapshot and live snapshot agree).
+    const applyRawMessages = (rawList: WithId<Message>[]) => {
+      const { displayMessages, pendingDocIdsToDelete } = correlateMessages(rawList);
+
+      if (pendingDocIdsToDelete.length > 0) {
+        pendingDocIdsToDelete.forEach((docId) => {
+          deleteDoc(doc(db, messagesCollection(waId, userPhone), docId)).catch(
+            (err) => console.error("Failed to delete correlated pending doc:", err)
+          );
+        });
+      }
+
+      setMessages(displayMessages);
+      setLoadingMessages(false);
+      setLoadingMoreMessages(false);
+    };
+
+    // 0. Cache-first hydration: paint instantly from the persistent local
+    // cache (no spinner on repeat visits), live listeners reconcile below.
+    (async () => {
+      try {
+        const [chatRes, contactRes, accountRes, messagesRes] = await Promise.all([
+          getDocCacheFirst<Chat>(doc(db, chatDoc(waId, userPhone))),
+          getDocCacheFirst<Contact>(doc(db, contactDoc(waId, userPhone))),
+          getDocCacheFirst<WaAccount>(doc(db, waAccountDoc(waId))),
+          getQueryCacheFirst<Message>(
+            query(
+              collection(db, messagesCollection(waId, userPhone)),
+              orderBy("timeMillis", "desc"),
+              limit(messageLimit)
+            )
+          ),
+        ]);
+        if (signal.cancelled) return;
+        if (chatRes.exists) {
+          setChat(chatRes.data);
+          setLoadingChat(false);
+        }
+        if (contactRes.exists) setContact(contactRes.data);
+        if (accountRes.data) setAccount(accountRes.data);
+        if (!messagesRes.empty) {
+          const cached = [...messagesRes.docs].reverse();
+          applyRawMessages(cached);
+          setMessagesHasMore(messagesRes.size >= messageLimit);
+        }
+      } catch (err) {
+        console.error("Thread cache hydration error:", err);
+      }
+    })();
+
     // 1. Account settings snapshot (fallback if not in context)
     const unsubAccount = onSnapshot(doc(db, waAccountDoc(waId)), (snapshot) => {
+      if (signal.cancelled) return;
       if (snapshot.exists()) {
         setAccount(snapshot.data() as WaAccount);
       }
@@ -142,6 +224,7 @@ export default function ContactDetailPage({ params }: PageProps) {
     const unsubChat = onSnapshot(
       doc(db, chatDoc(waId, userPhone)),
       (snapshot) => {
+        if (signal.cancelled) return;
         if (snapshot.exists()) {
           setChat(snapshot.data() as Chat);
         } else {
@@ -151,12 +234,14 @@ export default function ContactDetailPage({ params }: PageProps) {
       },
       (err) => {
         console.error("Chat metadata snapshot error:", err);
+        if (signal.cancelled) return;
         setLoadingChat(false);
       }
     );
 
     // 3. Contact doc snapshot
     const unsubContact = onSnapshot(doc(db, contactDoc(waId, userPhone)), (snapshot) => {
+      if (signal.cancelled) return;
       if (snapshot.exists()) {
         setContact(snapshot.data() as Contact);
       } else {
@@ -164,38 +249,32 @@ export default function ContactDetailPage({ params }: PageProps) {
       }
     });
 
-    // 4. Messages snapshot (last 50 messages)
+    // 4. Messages snapshot — paged (newest `messageLimit`); "Load older"
+    // widens the limit instead of cursoring, so realtime stays correct.
     const messagesQuery = query(
       collection(db, messagesCollection(waId, userPhone)),
       orderBy("timeMillis", "desc"),
-      limit(50)
+      limit(messageLimit)
     );
 
     const unsubMessages = onSnapshot(
       messagesQuery,
       (snapshot) => {
+        if (signal.cancelled) return;
         const rawList: WithId<Message>[] = snapshot.docs.map((docSnap) => ({
           id: docSnap.id,
           ...(docSnap.data() as Message),
         }));
 
         rawList.reverse();
-        const { displayMessages, pendingDocIdsToDelete } = correlateMessages(rawList);
-
-        if (pendingDocIdsToDelete.length > 0) {
-          pendingDocIdsToDelete.forEach((docId) => {
-            deleteDoc(doc(db, messagesCollection(waId, userPhone), docId)).catch(
-              (err) => console.error("Failed to delete correlated pending doc:", err)
-            );
-          });
-        }
-
-        setMessages(displayMessages);
-        setLoadingMessages(false);
+        applyRawMessages(rawList);
+        setMessagesHasMore(snapshot.size >= messageLimit);
       },
       (err) => {
         console.error("Messages snapshot error:", err);
+        if (signal.cancelled) return;
         setLoadingMessages(false);
+        setLoadingMoreMessages(false);
       }
     );
 
@@ -203,6 +282,7 @@ export default function ContactDetailPage({ params }: PageProps) {
     const unsubPrompts = onSnapshot(
       collection(db, promptsCollection(waId)),
       (snapshot) => {
+        if (signal.cancelled) return;
         const promptList: WithId<Prompt>[] = snapshot.docs.map((docSnap) => ({
           id: docSnap.id,
           ...(docSnap.data() as Prompt),
@@ -215,13 +295,14 @@ export default function ContactDetailPage({ params }: PageProps) {
     );
 
     return () => {
+      signal.cancelled = true;
       unsubAccount();
       unsubChat();
       unsubContact();
       unsubMessages();
       unsubPrompts();
     };
-  }, [waId, userPhone]);
+  }, [waId, userPhone, messageLimit]);
 
   const defaultPolicyActive = account?.default_bot_active_for_new_contacts ?? false;
   const isDefaultPolicy = chat?.bot_active === null || chat?.bot_active === undefined;
@@ -313,6 +394,10 @@ export default function ContactDetailPage({ params }: PageProps) {
           account={account}
           loading={loadingSharedChats}
           selectedUserPhone={userPhone}
+          totalCount={totalChatsCount}
+          hasMore={hasMoreChats}
+          loadingMore={loadingMoreChats}
+          onLoadMore={loadMoreChats}
         />
       </div>
 
@@ -432,7 +517,21 @@ export default function ContactDetailPage({ params }: PageProps) {
                 <p className="text-xs text-text-secondary">No messages found in this chat thread.</p>
               </div>
             ) : (
-              messages.map((msg, index) => {
+              <>
+                {/* Older-messages pagination — widens the live query limit */}
+                {messagesHasMore && (
+                  <div className="flex justify-center pb-1">
+                    <button
+                      type="button"
+                      onClick={handleLoadOlderMessages}
+                      disabled={loadingMoreMessages}
+                      className="rounded-full border border-border-custom bg-surface px-3.5 py-1 text-[11px] font-medium text-text-secondary shadow-2xs transition-colors hover:bg-surface-hover hover:text-text-primary disabled:opacity-50"
+                    >
+                      {loadingMoreMessages ? "Loading..." : "↑ Load older messages"}
+                    </button>
+                  </div>
+                )}
+                {messages.map((msg, index) => {
                 const isCustomer = msg.userType === "customer";
                 const audioInfo = parseAudioMessage(msg);
 
@@ -623,7 +722,8 @@ export default function ContactDetailPage({ params }: PageProps) {
                     </div>
                   </React.Fragment>
                 );
-              })
+              })}
+              </>
             )}
 
             {/* Jump to bottom new message indicator button */}
