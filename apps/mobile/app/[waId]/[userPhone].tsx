@@ -5,6 +5,7 @@ import {
   FlatList,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -27,12 +28,13 @@ export default function ThreadScreen() {
     waId: string;
     userPhone: string;
   }>();
-  const { snapshot, loading, loadingOlder, loadOlder, markingRead, markRead } =
+  const { snapshot, loading, loadingOlder, loadOlder, markingRead, markRead, sending, sendError, send } =
     useThread(waId ?? "", userPhone ?? "");
 
   const listRef = useRef<FlatList>(null);
   const [nearBottom, setNearBottom] = useState(true);
   const firstPaint = useRef(true);
+  const [draft, setDraft] = useState("");
 
   const name = resolveDisplayName(snapshot.contact, snapshot.chat?.phone ?? userPhone ?? "");
   const unread = snapshot.chat?.unreadCount ?? 0;
@@ -54,6 +56,11 @@ export default function ThreadScreen() {
           {item.message ? <Text style={styles.body}>{item.message}</Text> : null}
           {!item.message && (item.imgUrl || item.fileUrl) ? (
             <Text style={styles.body}>[attachment — open web app to view]</Text>
+          ) : null}
+          {item.status === "pending" ? (
+            <Text style={styles.pending}>⏳ pending…</Text>
+          ) : item.status === "unconfirmed" ? (
+            <Text style={styles.pendingWarn}>⚠️ delivery not confirmed</Text>
           ) : null}
         </View>
       </View>
@@ -141,6 +148,36 @@ export default function ThreadScreen() {
           }}
         />
       )}
+
+      {/* Manual reply composer */}
+      <View style={styles.composer}>
+        {sendError ? (
+          <Text style={styles.sendError}>{sendError}</Text>
+        ) : null}
+        <TextInput
+          style={styles.input}
+          placeholder="Type a manual reply..."
+          placeholderTextColor={colors.textMuted}
+          value={draft}
+          onChangeText={setDraft}
+          multiline
+        />
+        <TouchableOpacity
+          style={[styles.sendBtn, (sending || !draft.trim()) && styles.sendBtnDisabled]}
+          disabled={sending || !draft.trim()}
+          onPress={() => {
+            const text = draft;
+            setDraft("");
+            void send(text);
+          }}
+        >
+          {sending ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <Text style={styles.sendBtnText}>Send</Text>
+          )}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -209,4 +246,38 @@ const styles = StyleSheet.create({
   sender: { fontSize: 10, fontWeight: "600", color: colors.textSecondary },
   metaTime: { fontSize: 10, color: colors.textMuted },
   body: { fontSize: fontSize.sm, color: colors.textPrimary },
+  pending: { fontSize: 10, color: colors.textMuted, marginTop: 2 },
+  pendingWarn: { fontSize: 10, color: colors.danger, marginTop: 2 },
+  composer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  sendError: { position: "absolute", top: -18, left: spacing.md, fontSize: fontSize.xs, color: colors.danger },
+  input: {
+    flex: 1,
+    minHeight: 38,
+    maxHeight: 120,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+    padding: spacing.sm,
+    fontSize: fontSize.sm,
+    color: colors.textPrimary,
+  },
+  sendBtn: {
+    minWidth: 72,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: colors.textPrimary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sendBtnDisabled: { opacity: 0.4 },
+  sendBtnText: { color: colors.white, fontSize: fontSize.sm, fontWeight: "500" },
 });

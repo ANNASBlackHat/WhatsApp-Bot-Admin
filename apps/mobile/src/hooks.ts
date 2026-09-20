@@ -317,5 +317,35 @@ export function useThread(waId: string, userPhone: string) {
     }
   }, [waId, userPhone, markingRead]);
 
-  return { snapshot, loading, loadingOlder, loadOlder, markingRead, markRead };
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+
+  const send = useCallback(
+    async (text: string) => {
+      if (sending || !text.trim() || !waId || !userPhone) return;
+      setSending(true);
+      setSendError(null);
+      try {
+        await chatSource.sendManualReply(waId, userPhone, text);
+      } catch (err) {
+        console.error("Failed to send manual reply:", err);
+        setSendError("Failed to send. Check your connection and try again.");
+      } finally {
+        setSending(false);
+      }
+    },
+    [waId, userPhone, sending]
+  );
+
+  return {
+    snapshot,
+    loading,
+    loadingOlder,
+    loadOlder,
+    markingRead,
+    markRead,
+    sending,
+    sendError,
+    send,
+  };
 }

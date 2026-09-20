@@ -2,8 +2,8 @@
  * `NativeChatDataSource` — `ChatDataSource` backed by
  * `@react-native-firebase` (native SQLite persistence + FCM-ready).
  *
- * Read paths + `markChatRead` are implemented (mobile v1 is read-first).
- * Bot/prompt/manual-reply writes stay stubbed until the write UI lands.
+ * Read paths, `markChatRead`, and `sendManualReply` are implemented.
+ * Bot/prompt/folder/rename writes stay stubbed until that write UI lands.
  *
  * Native differences vs `WebChatDataSource`:
  * - Persistence is automatic (SQLite) — no `persistentLocalCache` setup.
@@ -13,6 +13,7 @@
  */
 
 import {
+  addDoc,
   collection,
   doc,
   getAggregateFromServer,
@@ -26,6 +27,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  setDoc,
   sum,
   updateDoc,
   where,
@@ -39,6 +41,7 @@ import {
   contactCollection,
   contactDoc,
   messagesCollection,
+  outgoingMessageCollection,
   waAccountDoc,
   type Chat,
   type Contact,
@@ -340,12 +343,37 @@ export class NativeChatDataSource implements ChatDataSource {
     );
   }
 
-  sendManualReply(): Promise<never> {
-    // Note: no manual `pending` bookkeeping needed — the native SDK queues
-    // offline writes and flushes on reconnect automatically.
-    return unimplemented(
-      "sendManualReply",
-      "add to wa_bot/recent-chat/all via firestore().collection(...).add(...) then write the local message doc"
+  async sendManualReply(waId: string, userPhone: string, text: string): Promise<void> {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const now = Date.now();
+
+    // 1. Outbox queue consumed by the Go backend.
+    await addDoc(collection(this.db, outgoingMessageCollection()), {
+      from: waId,
+      to: userPhone,
+      message: trimmed,
+      timestamp: now,
+    });
+
+    // 2. Optimistic local message (native SDK queues offline + flushes).
+    const msgRef = doc(collection(this.db, messagesCollection(waId, userPhone)));
+    await setDoc(msgRef, {
+      message: trimmed,
+      sender: waId,
+      userType: "admin",
+      timeMillis: now,
+      status: "pending",
+      messageId: msgRef.id,
+    });
+
+    // 3. Keep the list preview in sync.
+    const chatRef = doc(this.db, chatDoc(waId, userPhone));
+    await updateDoc(chatRef, {
+      lastChatMessage: trimmed,
+      lastChatTime: now,
+    }).catch(() =>
+      setDoc(chatRef, { lastChatMessage: trimmed, lastChatTime: now, phone: userPhone }, { merge: true })
     );
   }
 }

@@ -12,8 +12,10 @@ Firebase SDK directly.
 - `src/web-source.ts` — real implementation on the Firebase JS SDK
   (IndexedDB persistent cache). Mirrors `src/lib/chats-context.tsx`,
   the contact thread page, and `src/components/manual-reply-bar.tsx`.
-- `src/native-source.ts` — stub for `apps/mobile`. Each method names the
-  `@react-native-firebase` mapping to implement.
+- `src/native-source.ts` — `@react-native-firebase` implementation for
+  `apps/mobile`: reads, `markChatRead`, and `sendManualReply` are wired;
+  bot/prompt/folder/rename writes stay stubbed (each names the native
+  mapping to implement).
 
 ## Web vs native
 
@@ -35,12 +37,13 @@ Firebase SDK directly.
   (`hydrateChatsCacheFirst` + `subscribeChats`/`subscribeContacts`/`subscribeAccount`
   + `fetchChatTotals`). Public `useChats()` shape unchanged.
 - [x] `apps/mobile` (Expo) implements the read-first screens on
-  `NativeChatDataSource` reusing `@app/schema` paths.
+  `NativeChatDataSource` reusing `@app/schema` paths, plus the thread
+  composer (`sendManualReply` is now wired natively).
 
 Remaining:
 
 3. Thread page uses `hydrateThreadCacheFirst` + `subscribeThread` (web still
    wires its five listeners directly — behavior identical, migration optional).
-4. Bot/prompt/folder/rename/manual-reply UI on mobile (stubs throw `not wired`
-   today; mobile v1 is read-first — folder tabs render read-only over the same
-   loaded window, rename UI is web-only).
+4. Bot/prompt/folder/rename UI on mobile (stubs throw `not wired` today;
+   folder tabs render read-only over the same loaded window, rename UI is
+   web-only).
