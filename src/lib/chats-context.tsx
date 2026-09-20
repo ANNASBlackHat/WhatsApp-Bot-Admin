@@ -7,20 +7,11 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import {
-  collection,
-  doc,
-  getAggregateFromServer,
-  getCountFromServer,
-  limit,
-  onSnapshot,
-  orderBy,
-  query,
-  sum,
-} from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { getDocCacheFirst, getQueryCacheFirst } from "@/lib/firestore-cache";
-import { chatCollection, contactCollection, waAccountDoc } from "@/lib/firestore-paths";
+// Data layer: all Firestore access goes through the shared ChatDataSource
+// interface (packages/data). The web app injects the JS-SDK implementation;
+// the mobile app will inject the native one. See packages/data/README.md.
+import { WebChatDataSource } from "../../packages/data/src/index";
 import { Chat, Contact, WaAccount, WithId } from "@/types/firestore";
 
 /**
@@ -63,7 +54,7 @@ const ChatsContext = createContext<ChatsContextType>({
   loadMoreChats: () => {},
 });
 
-const chatsCollection = (waId: string) => collection(db, chatCollection(waId));
+const chatSource = new WebChatDataSource(db);
 
 export function ChatsProvider({
   waId,
@@ -83,19 +74,14 @@ export function ChatsProvider({
   const [hasMoreChats, setHasMoreChats] = useState<boolean>(true);
   const [loadingMoreChats, setLoadingMoreChats] = useState<boolean>(false);
 
-  // Exact server-side totals via aggregations (no document downloads).
+  // Refresh exact server-side totals (aggregations — no document downloads).
   const refreshTotals = useCallback(
     async (id: string, signal: { cancelled: boolean }) => {
       try {
-        const [countSnap, unreadSnap] = await Promise.all([
-          getCountFromServer(chatsCollection(id)),
-          getAggregateFromServer(chatsCollection(id), {
-            total: sum("unreadCount"),
-          }),
-        ]);
+        const totals = await chatSource.fetchChatTotals(id);
         if (signal.cancelled) return;
-        setTotalChatsCount(countSnap.data().count);
-        setTotalUnreadCount(unreadSnap.data().total ?? 0);
+        setTotalChatsCount(totals.totalChats);
+        setTotalUnreadCount(totals.unreadTotal);
       } catch (err) {
         console.error("Chats totals aggregation error:", err);
       }
@@ -104,7 +90,7 @@ export function ChatsProvider({
   );
 
   // Cache-first hydration: render instantly from the persistent local cache
-  // (repeat visits have zero spinner), then live listeners reconcile below.
+  // (repeat visits have zero spinner), then live subscriptions reconcile below.
   useEffect(() => {
     if (!waId) {
       setChats([]);
@@ -125,37 +111,20 @@ export function ChatsProvider({
     setPageSize(CHATS_PAGE_SIZE);
     setHasMoreChats(true);
 
-    (async () => {
-      try {
-        const [accountRes, chatsRes, contactsRes] = await Promise.all([
-          getDocCacheFirst<WaAccount>(doc(db, waAccountDoc(waId))),
-          getQueryCacheFirst<Chat>(
-            query(
-              chatsCollection(waId),
-              orderBy("lastChatTime", "desc"),
-              limit(CHATS_PAGE_SIZE)
-            )
-          ),
-          getQueryCacheFirst<Contact>(
-            query(collection(db, contactCollection(waId)))
-          ),
-        ]);
+    chatSource
+      .hydrateChatsCacheFirst(waId, CHATS_PAGE_SIZE)
+      .then((res) => {
         if (signal.cancelled) return;
-        if (accountRes.data) setAccount(accountRes.data);
-        const sorted = [...chatsRes.docs].sort(
-          (a, b) => (b.lastChatTime || 0) - (a.lastChatTime || 0)
-        );
-        setChats(sorted);
-        const map: Record<string, Contact> = {};
-        for (const c of contactsRes.docs) map[c.id] = c;
-        setContactsMap(map);
-        setHasMoreChats(chatsRes.size >= CHATS_PAGE_SIZE);
+        if (res.account) setAccount(res.account);
+        setChats(res.chats);
+        setContactsMap(res.contacts);
+        setHasMoreChats(res.hasMore);
         setLoading(false);
-      } catch (err) {
+      })
+      .catch((err) => {
         console.error("Chats cache hydration error:", err);
         if (!signal.cancelled) setLoading(false);
-      }
-    })();
+      });
 
     void refreshTotals(waId, signal);
 
@@ -164,7 +133,7 @@ export function ChatsProvider({
     };
   }, [waId, refreshTotals]);
 
-  // Live subscriptions. The chats query is bounded by `pageSize` so the
+  // Live subscriptions. The chats subscription is bounded by `pageSize` so the
   // initial download stays small; "Load more" widens it.
   useEffect(() => {
     if (!waId) {
@@ -173,59 +142,36 @@ export function ChatsProvider({
 
     const signal = { cancelled: false };
 
-    // 1. Account listener
-    const unsubAccount = onSnapshot(
-      doc(db, waAccountDoc(waId)),
-      (snapshot) => {
-        if (signal.cancelled) return;
-        if (snapshot.exists()) {
-          setAccount(snapshot.data() as WaAccount);
-        } else {
-          setAccount(null);
-        }
+    // 1. Account subscription
+    const unsubAccount = chatSource.subscribeAccount(
+      waId,
+      (account) => {
+        if (!signal.cancelled) setAccount(account);
       },
       (err) => console.error("Account listener error:", err)
     );
 
-    // 2. Contacts metadata listener (names, photos)
-    const unsubContacts = onSnapshot(
-      collection(db, contactCollection(waId)),
-      (snapshot) => {
-        if (signal.cancelled) return;
-        const map: Record<string, Contact> = {};
-        snapshot.docs.forEach((docSnap) => {
-          map[docSnap.id] = docSnap.data() as Contact;
-        });
-        setContactsMap(map);
+    // 2. Contacts metadata subscription (names, photos)
+    const unsubContacts = chatSource.subscribeContacts(
+      waId,
+      (map) => {
+        if (!signal.cancelled) setContactsMap(map);
       },
       (err) => console.error("Contacts listener error:", err)
     );
 
-    // 3. Chats listener — paged (the single real-time source of truth for the
-    // loaded window of chats). Exact totals come from `refreshTotals`.
-    const pagedChatsQuery = query(
-      chatsCollection(waId),
-      orderBy("lastChatTime", "desc"),
-      limit(pageSize)
-    );
-    const unsubChats = onSnapshot(
-      pagedChatsQuery,
-      (snapshot) => {
+    // 3. Chats subscription — paged (the single real-time source of truth for
+    // the loaded window of chats). Exact totals come from `refreshTotals`.
+    const unsubChats = chatSource.subscribeChats(
+      waId,
+      pageSize,
+      ({ chats: list, hasMore }) => {
         if (signal.cancelled) return;
-        const list: WithId<Chat>[] = snapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...(docSnap.data() as Chat),
-        }));
-
-        list.sort((a, b) => (b.lastChatTime || 0) - (a.lastChatTime || 0));
-
         setChats(list);
-        setHasMoreChats(snapshot.size >= pageSize);
+        setHasMoreChats(hasMore);
         setLoading(false);
         setLoadingMoreChats(false);
-        if (snapshot.docChanges().length > 0) {
-          void refreshTotals(waId, signal);
-        }
+        void refreshTotals(waId, signal);
       },
       (err) => {
         console.error("Chats listener error in ChatsProvider:", err);
