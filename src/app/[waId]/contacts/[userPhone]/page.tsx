@@ -1,9 +1,8 @@
 "use client";
 
-import React, { use, useEffect, useRef, useState } from "react";
+import React, { use, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  addDoc,
   collection,
   deleteDoc,
   doc,
@@ -20,7 +19,6 @@ import {
   chatDoc,
   contactDoc,
   messagesCollection,
-  outgoingMessageCollection,
   promptsCollection,
   waAccountDoc,
 } from "@/lib/firestore-paths";
@@ -40,6 +38,11 @@ import {
   formatDateDivider,
 } from "@/lib/utils";
 import { useChats } from "@/lib/chats-context";
+import { WebChatDataSource } from "@app/data/web";
+import {
+  effectiveFolders,
+  resolveDisplayName,
+} from "@/lib/chat-helpers";
 import { ContactsListPane } from "@/components/contacts-list-pane";
 import { ContactControlsPanel } from "@/components/contact-controls-panel";
 import { ImageLightbox } from "@/components/image-lightbox";
@@ -62,6 +65,10 @@ export default function ContactDetailPage({ params }: PageProps) {
   const waId = decodeURIComponent(resolvedParams.waId);
   const userPhone = decodeURIComponent(resolvedParams.userPhone);
 
+  const chatSource = new WebChatDataSource(db);
+  const [folderBusy, setFolderBusy] = useState(false);
+  const [renameBusy, setRenameBusy] = useState(false);
+
   const {
     chats,
     contactsMap,
@@ -75,7 +82,10 @@ export default function ContactDetailPage({ params }: PageProps) {
 
   const [chat, setChat] = useState<Chat | null>(null);
   const [contact, setContact] = useState<Contact | null>(null);
-  const [account, setAccount] = useState<WaAccount | null>(sharedAccount);
+  // Fallback account source: the shared context account wins when present;
+  // the cache hydration below can still write to it when the context has
+  // not resolved yet.
+  const [localAccount, setAccount] = useState<WaAccount | null>(sharedAccount);
   const [messages, setMessages] = useState<WithId<Message>[]>([]);
   const [prompts, setPrompts] = useState<WithId<Prompt>[]>([]);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -149,11 +159,9 @@ export default function ContactDetailPage({ params }: PageProps) {
     }
   }, [messages]);
 
-  useEffect(() => {
-    if (sharedAccount) {
-      setAccount(sharedAccount);
-    }
-  }, [sharedAccount]);
+  // Sync shared account (from the chats context) into local state — a pure
+  // derived value, safe to compute without an effect.
+  const account = sharedAccount ?? localAccount;
 
   useEffect(() => {
     if (!waId || !userPhone) {
@@ -310,7 +318,36 @@ export default function ContactDetailPage({ params }: PageProps) {
     ? defaultPolicyActive
     : Boolean(chat?.bot_active);
 
-  const displayName = contact?.name || chat?.phone || userPhone;
+  const folders = useMemo(() => effectiveFolders(account), [account]);
+  const displayName = resolveDisplayName(
+    contact,
+    chat?.phone || userPhone
+  );
+
+  // Move chat to a folder tab (null = back to default view)
+  const handleFolderChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const folderKey = e.target.value === "none" ? null : e.target.value;
+    try {
+      setFolderBusy(true);
+      await chatSource.setChatFolder(waId, userPhone, folderKey);
+    } catch (err) {
+      console.error("Failed to update chat folder:", err);
+    } finally {
+      setFolderBusy(false);
+    }
+  };
+
+  // Save local display name (empty = clear, falls back to synced name)
+  const handleRename = async (name: string | null) => {
+    try {
+      setRenameBusy(true);
+      await chatSource.setContactDisplayName(waId, userPhone, name);
+    } catch (err) {
+      console.error("Failed to save display name:", err);
+    } finally {
+      setRenameBusy(false);
+    }
+  };
 
   // Toggle per-contact bot_active
   const handleToggleBot = async () => {
@@ -771,9 +808,14 @@ export default function ContactDetailPage({ params }: PageProps) {
               loadingChat={loadingChat}
               isUpdatingPrompt={isUpdatingPrompt}
               prompts={prompts}
+              folders={folders}
+              folderBusy={folderBusy}
+              renameBusy={renameBusy}
               handleToggleBot={handleToggleBot}
               handleResetBot={handleResetBot}
               handlePromptChange={handlePromptChange}
+              handleFolderChange={handleFolderChange}
+              handleRename={handleRename}
             />
           </div>
         </div>

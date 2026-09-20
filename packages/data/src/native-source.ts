@@ -326,6 +326,20 @@ export class NativeChatDataSource implements ChatDataSource {
     );
   }
 
+  setChatFolder(): Promise<never> {
+    return unimplemented(
+      "setChatFolder",
+      "firestore().doc(chatDoc(waId, userPhone)).update({ folder: folderKey })"
+    );
+  }
+
+  setContactDisplayName(): Promise<never> {
+    return unimplemented(
+      "setContactDisplayName",
+      "firestore().doc(contactDoc(waId, userPhone)).update({ display_name: name })"
+    );
+  }
+
   sendManualReply(): Promise<never> {
     // Note: no manual `pending` bookkeeping needed — the native SDK queues
     // offline writes and flushes on reconnect automatically.

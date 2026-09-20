@@ -3,6 +3,12 @@
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { Chat, Contact, WaAccount, WithId } from "@/types/firestore";
+import {
+  effectiveFolders,
+  matchesTab,
+  resolveDisplayName,
+  type TabKey,
+} from "@/lib/chat-helpers";
 
 interface ContactsListPaneProps {
   waId: string;
@@ -30,16 +36,17 @@ export const ContactsListPane = React.memo(function ContactsListPane({
   loadingMore,
   onLoadMore,
 }: ContactsListPaneProps) {
-  const [filter, setFilter] = useState<"all" | "active" | "paused">("all");
+  const [filter, setFilter] = useState<TabKey>("default");
   const [searchQuery, setSearchQuery] = useState("");
 
   const defaultPolicyActive = account?.default_bot_active_for_new_contacts ?? false;
+  const folders = useMemo(() => effectiveFolders(account), [account]);
 
   const filteredChats = useMemo(() => {
     return chats.filter((chat) => {
       const phone = chat.phone || chat.id;
       const contact = contactsMap[phone] || contactsMap[chat.id];
-      const displayName = contact?.name || phone;
+      const displayName = resolveDisplayName(contact, phone);
 
       // 1. Search Query Filter
       if (searchQuery.trim()) {
@@ -52,28 +59,24 @@ export const ContactsListPane = React.memo(function ContactsListPane({
         }
       }
 
-      // 2. Effective Bot Status Filter
-      const isDefaultPolicy =
-        chat.bot_active === null || chat.bot_active === undefined;
-      const isEffectiveActive = isDefaultPolicy
-        ? defaultPolicyActive
-        : Boolean(chat.bot_active);
-
-      if (filter === "active" && !isEffectiveActive) return false;
-      if (filter === "paused" && isEffectiveActive) return false;
+      // 2. Tab filter (status tabs or folder tabs — pure client-side pass)
+      if (!matchesTab(chat, filter, defaultPolicyActive)) return false;
 
       return true;
     });
   }, [chats, contactsMap, searchQuery, filter, defaultPolicyActive]);
 
-  const activeBotsCount = useMemo(() => {
-    return chats.filter((c) => {
-      const isDefault = c.bot_active === null || c.bot_active === undefined;
-      return isDefault ? defaultPolicyActive : Boolean(c.bot_active);
-    }).length;
-  }, [chats, defaultPolicyActive]);
-
-  const pausedBotsCount = chats.length - activeBotsCount;
+  const tabCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const c of chats) {
+      for (const key of ["default", "active", "paused", ...folders.map((f) => f.key)]) {
+        if (matchesTab(c, key as TabKey, defaultPolicyActive)) {
+          counts[key] = (counts[key] ?? 0) + 1;
+        }
+      }
+    }
+    return counts;
+  }, [chats, defaultPolicyActive, folders]);
 
   return (
     <div className="flex flex-col h-full bg-surface border-b lg:border-b-0 lg:border-r border-border-custom">
@@ -116,17 +119,17 @@ export const ContactsListPane = React.memo(function ContactsListPane({
         </div>
 
         {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 pt-1">
+        <div className="flex items-center gap-1.5 pt-1 flex-wrap">
           <button
             type="button"
-            onClick={() => setFilter("all")}
+            onClick={() => setFilter("default")}
             className={`rounded px-2 py-1 text-[11px] font-medium transition-colors ${
-              filter === "all"
+              filter === "default"
                 ? "bg-text-primary text-surface"
                 : "bg-canvas text-text-secondary hover:bg-surface-hover"
             }`}
           >
-            All ({chats.length})
+            Default ({tabCounts["default"] ?? 0})
           </button>
           <button
             type="button"
@@ -137,7 +140,7 @@ export const ContactsListPane = React.memo(function ContactsListPane({
                 : "bg-canvas text-text-secondary hover:bg-surface-hover"
             }`}
           >
-            Active ({activeBotsCount})
+            Active ({tabCounts["active"] ?? 0})
           </button>
           <button
             type="button"
@@ -148,8 +151,24 @@ export const ContactsListPane = React.memo(function ContactsListPane({
                 : "bg-canvas text-text-secondary hover:bg-surface-hover"
             }`}
           >
-            Paused ({pausedBotsCount})
+            Paused ({tabCounts["paused"] ?? 0})
           </button>
+          {folders.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setFilter(f.key)}
+              className={`rounded px-2 py-1 text-[11px] font-medium transition-colors ${
+                filter === f.key
+                  ? f.key === "hidden"
+                    ? "bg-accent-paused-bg text-accent-paused border border-accent-paused/20"
+                    : "bg-accent-active-bg text-accent-active border border-accent-active/20"
+                  : "bg-canvas text-text-secondary hover:bg-surface-hover"
+              }`}
+            >
+              {f.name} ({tabCounts[f.key] ?? 0})
+            </button>
+          ))}
         </div>
       </div>
 
@@ -163,14 +182,14 @@ export const ContactsListPane = React.memo(function ContactsListPane({
           <div className="p-6 text-center text-xs text-text-secondary space-y-1">
             <p className="font-medium text-text-primary">No contacts found</p>
             <p className="text-[11px] text-text-muted">
-              {searchQuery ? "Try adjusting your search query." : "No matching contacts."}
+              {searchQuery ? "Try adjusting your search query." : filter === "default" ? "No conversations in the default view." : "No conversations in this tab."}
             </p>
           </div>
         ) : (
           filteredChats.map((chat) => {
             const phone = chat.phone || chat.id;
             const contact = contactsMap[phone] || contactsMap[chat.id];
-            const displayName = contact?.name || phone;
+            const displayName = resolveDisplayName(contact, phone);
 
             const isSelected = selectedUserPhone === phone;
             const unread = chat.unreadCount ?? 0;

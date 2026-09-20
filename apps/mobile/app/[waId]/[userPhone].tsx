@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import type { WithId } from "@app/schema";
 import type { Message } from "@app/schema";
+import { resolveDisplayName } from "@app/schema";
 import { useThread } from "../../src/hooks";
 import { colors, fontSize, spacing } from "../../src/theme";
 
@@ -33,7 +34,7 @@ export default function ThreadScreen() {
   const [nearBottom, setNearBottom] = useState(true);
   const firstPaint = useRef(true);
 
-  const name = snapshot.contact?.name ?? snapshot.chat?.phone ?? userPhone ?? "";
+  const name = resolveDisplayName(snapshot.contact, snapshot.chat?.phone ?? userPhone ?? "");
   const unread = snapshot.chat?.unreadCount ?? 0;
   const defaultPolicy = snapshot.account?.default_bot_active_for_new_contacts ?? false;
   const isDefault = snapshot.chat?.bot_active == null;

@@ -1,11 +1,12 @@
 "use client";
 
-import React, { use, useEffect, useState } from "react";
+import React, { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { collection, doc, getCountFromServer, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { waAccountDoc, chatCollection } from "@/lib/firestore-paths";
 import { WaAccount } from "@/types/firestore";
+import { BUILTIN_FOLDER_KEYS, FOLDER_DEFAULTS } from "@/lib/chat-helpers";
 
 interface PageProps {
   params: Promise<{ waId: string }>;
@@ -36,6 +37,115 @@ export default function SettingsPage({ params }: PageProps) {
   const [quietTimezone, setQuietTimezone] = useState<string>("Asia/Jakarta");
   const [updatingQuiet, setUpdatingQuiet] = useState<boolean>(false);
   const [quietSaveStatus, setQuietSaveStatus] = useState<string | null>(null);
+
+  // Folder manager — local draft state seeded once from the live doc; a
+  // single "Save Folders" write applies everything (one Firestore write,
+  // not one per keystroke). Add/remove are immediate since they're rare.
+  //
+  // The drafts are derived from `account.folders` when no in-progress edits
+  // exist (`dirty` flag), so opening the page after a save re-reads live data
+  // without a sync effect.
+  const [draftBuiltins, setDraftBuiltins] = useState<Record<string, string>>({});
+  const [draftCustoms, setDraftCustoms] = useState<{ key: string; name: string }[]>([]);
+  const [folderEditsDirty, setFolderEditsDirty] = useState(false);
+  const [newFolderName, setNewFolderName] = useState<string>("");
+  const [updatingFolders, setUpdatingFolders] = useState<boolean>(false);
+  const [folderSaveStatus, setFolderSaveStatus] = useState<string | null>(null);
+
+  const builtins = useMemo(
+    () => BUILTIN_FOLDER_KEYS.map((key) => ({ key, name: FOLDER_DEFAULTS.find((f) => f.key === key)!.name })),
+    []
+  );
+
+  const liveFolders = useMemo(() => account?.folders ?? [], [account]);
+  const hasEdits = folderEditsDirty || newFolderName.trim() !== "";
+
+  // Pure derived view: if the admin is editing, show the draft; otherwise
+  // mirror the live doc so a round-trip save re-renders inputs instantly.
+  const shownBuiltins = useMemo(() => {
+    const result: Record<string, string> = {};
+    for (const b of builtins) {
+      if (hasEdits) {
+        result[b.key] = draftBuiltins[b.key] ?? b.name;
+      } else {
+        result[b.key] = liveFolders.find((f) => f.key === b.key)?.name ?? b.name;
+      }
+    }
+    return result;
+  }, [builtins, draftBuiltins, liveFolders, hasEdits]);
+
+  const shownCustoms = useMemo(() => {
+    if (hasEdits) return draftCustoms;
+    return liveFolders.filter((f) => !(BUILTIN_FOLDER_KEYS as readonly string[]).includes(f.key));
+  }, [draftCustoms, liveFolders, hasEdits]);
+
+  // Seed the drafts lazily on the first local edit.
+  const ensureSeeded = () => {
+    if (folderEditsDirty) return;
+    setDraftBuiltins(
+      builtins.reduce<Record<string, string>>((acc, b) => {
+        acc[b.key] = liveFolders.find((f) => f.key === b.key)?.name ?? b.name;
+        return acc;
+      }, {})
+    );
+    setDraftCustoms(
+      liveFolders.filter((f) => !(BUILTIN_FOLDER_KEYS as readonly string[]).includes(f.key))
+    );
+    setFolderEditsDirty(true);
+  };
+
+  const handleSaveFolders = async () => {
+    if (!hasEdits) {
+      setFolderSaveStatus("Nothing to save.");
+      setTimeout(() => setFolderSaveStatus(null), 2000);
+      return;
+    }
+    try {
+      setUpdatingFolders(true);
+      setFolderSaveStatus(null);
+      const next: { key: string; name: string }[] = [
+        ...builtins.map((b) => ({ key: b.key, name: shownBuiltins[b.key] ?? b.name })),
+        ...shownCustoms,
+      ];
+      const targetRef = doc(db, waAccountDoc(waId));
+      await updateDoc(targetRef, { folders: next }).catch(async () => {
+        await setDoc(targetRef, { folders: next }, { merge: true });
+      });
+      setFolderEditsDirty(false);
+      setNewFolderName("");
+      setFolderSaveStatus("Folders saved successfully.");
+      setTimeout(() => setFolderSaveStatus(null), 3000);
+    } catch (err) {
+      console.error("Failed to save folders:", err);
+      setFolderSaveStatus("Failed to save folders.");
+    } finally {
+      setUpdatingFolders(false);
+    }
+  };
+
+  const handleAddCustomFolder = () => {
+    ensureSeeded();
+    const name = newFolderName.trim();
+    if (!name) return;
+    const key = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    if (!key || BUILTIN_FOLDER_KEYS.includes(key as (typeof BUILTIN_FOLDER_KEYS)[number]) ||
+        draftCustoms.some((f) => f.key === key)) {
+      setFolderSaveStatus("Folder name already in use.");
+      return;
+    }
+    setDraftCustoms((prev) => [...prev, { key, name }]);
+    setNewFolderName("");
+    setFolderSaveStatus(null);
+  };
+
+  const handleRemoveCustomFolder = (key: string) => {
+    // Chats in a deleted folder fall back to the default view (folder = null).
+    // The folder reference in existing chat docs is harmless — matchesTab
+    // simply won't show them under any tab except via search.
+    ensureSeeded();
+    setDraftCustoms((prev) => prev.filter((f) => f.key !== key));
+    setFolderSaveStatus(null);
+  };
 
   useEffect(() => {
 
@@ -357,6 +467,112 @@ export default function SettingsPage({ params }: PageProps) {
               />
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* 3b. Chat Folders Section */}
+      <div className="rounded-lg border border-border-custom bg-surface p-5 shadow-xs space-y-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-base">🗂️</span>
+            <h2 className="text-sm font-medium text-text-primary">Chat Folders</h2>
+          </div>
+          <p className="text-xs text-text-secondary">
+            Bound to <code className="font-mono bg-canvas px-1 py-0.5 rounded">wa_bot/{waId}.folders</code>. Renames built-in tab labels or adds custom folder tabs. Removing a custom folder moves its chats back to the default view.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {builtins.map((b) => (
+            <div key={b.key}>
+              <label htmlFor={`folder-label-${b.key}`} className="block text-[11px] font-medium text-text-primary mb-1">
+                Built-in: “{b.name}” label
+              </label>
+              <input
+                id={`folder-label-${b.key}`}
+                type="text"
+                value={shownBuiltins[b.key] ?? b.name}
+                onChange={(e) => {
+                  ensureSeeded();
+                  setDraftBuiltins((prev) => ({ ...prev, [b.key]: e.target.value }));
+                }}
+                className="w-full rounded border border-border-custom bg-canvas px-3 py-2 text-xs text-text-primary focus:border-text-primary focus:outline-none focus:ring-1 focus:ring-text-primary"
+              />
+            </div>
+          ))}
+        </div>
+
+        {shownCustoms.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[11px] font-medium text-text-primary">Custom folders</p>
+            {shownCustoms.map((f) => (
+              <div key={f.key} className="flex items-center gap-2">
+                <input
+                  type="text"
+                  defaultValue={f.name}
+                  key={`${f.key}-${f.name}`}
+                  onChange={(e) => {
+                    ensureSeeded();
+                    setDraftCustoms((prev) =>
+                      prev.map((c) => (c.key === f.key ? { ...c, name: e.target.value } : c))
+                    );
+                  }}
+                  className="flex-1 rounded border border-border-custom bg-canvas px-3 py-2 text-xs text-text-primary focus:border-text-primary focus:outline-none focus:ring-1 focus:ring-text-primary"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveCustomFolder(f.key)}
+                  className="rounded border border-accent-danger/30 bg-accent-danger-bg px-2.5 py-2 text-[11px] font-medium text-accent-danger hover:bg-accent-danger/20"
+                  title={`Remove “${f.name}” (chats in it return to the default view)`}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <label htmlFor="new-folder-name" className="block text-[11px] font-medium text-text-primary mb-1">
+              Add custom folder
+            </label>
+            <input
+              id="new-folder-name"
+              type="text"
+              value={newFolderName}
+              placeholder="e.g. Clients, VIP"
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAddCustomFolder()}
+              className="w-full rounded border border-border-custom bg-canvas px-3 py-2 text-xs text-text-primary placeholder-text-muted focus:border-text-primary focus:outline-none focus:ring-1 focus:ring-text-primary"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleAddCustomFolder}
+            disabled={!newFolderName.trim()}
+            className="rounded border border-border-custom bg-surface px-3 py-2 text-xs font-medium text-text-primary hover:bg-surface-hover disabled:opacity-50"
+          >
+            Add
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between pt-1">
+          {folderSaveStatus ? (
+            <span className={`text-xs font-medium ${folderSaveStatus.includes("saved") ? "text-accent-active" : "text-accent-danger"}`}>
+              {folderSaveStatus}
+            </span>
+          ) : (
+            <span />
+          )}
+          <button
+            type="button"
+            onClick={handleSaveFolders}
+            disabled={updatingFolders || loading || !hasEdits}
+            className="rounded bg-text-primary px-4 py-2 text-xs font-medium text-surface transition-colors hover:bg-text-primary/90 disabled:opacity-50"
+          >
+            {updatingFolders ? "Saving…" : "Save Folders"}
+          </button>
         </div>
       </div>
 

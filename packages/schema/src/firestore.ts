@@ -55,6 +55,22 @@ export interface WaAccount {
 
   /** Optional friendly display name for account switcher. */
   display_name?: string;
+
+  /**
+   * Folder labels for the chat list tabs. Built-in keys `work` and `hidden`
+   * are always available (fall back to the FOLDER_DEFAULTS names when this
+   * field is unset); entries here label built-ins or define custom folders.
+   * A chat's `Chat.folder` holds a `key` from this list (or null = default).
+   */
+  folders?: ChatFolder[];
+}
+
+/** A chat folder tab (built-in or custom). */
+export interface ChatFolder {
+  /** Stable key written to `Chat.folder`; built-ins are `work` / `hidden`. */
+  key: string;
+  /** Admin-editable display label shown on the tab. */
+  name: string;
 }
 
 
@@ -69,6 +85,12 @@ export interface WaAccount {
 export interface Contact {
   /** Contact display name. */
   name: string;
+  /**
+   * Admin-set local display name (overrides `name` for display only).
+   * `name` is owned by the backend sync job, so this separate field is not
+   * clobbered. Resolved via `resolveDisplayName()`.
+   */
+  display_name?: string;
   /** Phone number. */
   phone: string;
   /** WhatsApp profile picture URL. */
@@ -111,6 +133,14 @@ export interface Chat {
    * When set, the bot uses `prompts/{custom_prompt_id}` instead of the default.
    */
   custom_prompt_id?: string;
+
+  /**
+   * Folder key for list-tab grouping (see `WaAccount.folders`).
+   * - `null` / missing → default tab (excludes "hidden" by design)
+   * - `"hidden"` → shown only under the Hidden tab
+   * - any other key → shown under that folder's tab
+   */
+  folder?: string | null;
 }
 
 // ---------------------------------------------------------------------------

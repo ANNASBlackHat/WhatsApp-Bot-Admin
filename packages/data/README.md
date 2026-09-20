@@ -8,7 +8,7 @@ Firebase SDK directly.
 
 - `src/chat-source.ts` — the contract: paged chats, thread snapshots,
   server-side totals, and the write queue (`setBotActive`, `setCustomPrompt`,
-  `markChatRead`, `sendManualReply`).
+  `markChatRead`, `sendManualReply`, `setChatFolder`, `setContactDisplayName`).
 - `src/web-source.ts` — real implementation on the Firebase JS SDK
   (IndexedDB persistent cache). Mirrors `src/lib/chats-context.tsx`,
   the contact thread page, and `src/components/manual-reply-bar.tsx`.
@@ -41,4 +41,6 @@ Remaining:
 
 3. Thread page uses `hydrateThreadCacheFirst` + `subscribeThread` (web still
    wires its five listeners directly — behavior identical, migration optional).
-4. Bot/prompt/manual-reply UI on mobile (stubs throw `not wired` today).
+4. Bot/prompt/folder/rename/manual-reply UI on mobile (stubs throw `not wired`
+   today; mobile v1 is read-first — folder tabs render read-only over the same
+   loaded window, rename UI is web-only).

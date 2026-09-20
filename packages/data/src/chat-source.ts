@@ -125,6 +125,18 @@ export interface ChatDataSource {
     promptId: string | null
   ): Promise<void>;
   markChatRead(waId: string, userPhone: string): Promise<void>;
+  /** Assigns a folder tab; `null` clears it (back to the default view). */
+  setChatFolder(
+    waId: string,
+    userPhone: string,
+    folderKey: string | null
+  ): Promise<void>;
+  /** Local display name; `null` clears it (falls back to synced name). */
+  setContactDisplayName(
+    waId: string,
+    userPhone: string,
+    name: string | null
+  ): Promise<void>;
   /** Queues to `wa_bot/recent-chat/all` + writes a local `pending` message. */
   sendManualReply(waId: string, userPhone: string, text: string): Promise<void>;
 }

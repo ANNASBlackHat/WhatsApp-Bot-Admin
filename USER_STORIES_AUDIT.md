@@ -26,6 +26,7 @@ This document audits all user stories defined in `wa-bot-admin-user-stories.md` 
 | | **US-3.7** Mark chat as read | **P1** | **DONE** | "Mark read" button setting `unreadCount: 0` in `src/app/contacts/[userPhone]/page.tsx` |
 | **Epic 4: Segmentation & organization** | **US-4.1** Contact tags (VIP, needs-human) | **P2** | OUTSTANDING (P2) | Future enhancement |
 | | **US-4.2** Filter by bot status | **P1** | **DONE** | Status filter pills ("All", "Bot active", "Bot paused") in `src/app/page.tsx` |
+| | **US-4.3** Chat folders & local rename | **P1** | **DONE** | Folder tabs (`Chat.folder` + `WaAccount.folders`) with default/exclude-hidden semantics in `packages/schema/src/chat-helpers.ts`; rename via `Contact.display_name` in `ContactControlsPanel` + `ChatsProvider`. Web writes, mobile reads. |
 | **Epic 5: Status / story feed** | **US-5.1** View WhatsApp status feed | **P2** | OUTSTANDING (P2) | Future enhancement |
 | **Epic 6: Ops & visibility** | **US-6.1** Ops Dashboard | **P1** | **DONE** | Stats overview & active contacts at `/dashboard` (`src/app/dashboard/page.tsx`) |
 | | **US-6.2** Audit logs for prompt/toggle changes | **P2** | OUTSTANDING (P2) | Future enhancement |

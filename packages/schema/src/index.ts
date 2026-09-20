@@ -7,3 +7,4 @@
  */
 export * from "./firestore";
 export * from "./firestore-paths";
+export * from "./chat-helpers";

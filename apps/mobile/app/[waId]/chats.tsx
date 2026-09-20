@@ -11,10 +11,16 @@ import {
 } from "react-native";
 import type { WithId } from "@app/schema";
 import type { Chat } from "@app/schema";
+import {
+  effectiveFolders,
+  matchesTab,
+  resolveDisplayName,
+  type TabKey,
+} from "@app/schema";
 import { useChatsList } from "../../src/hooks";
 import { colors, fontSize, spacing } from "../../src/theme";
 
-type Filter = "all" | "active" | "paused";
+type Filter = TabKey;
 
 function formatTime(timestamp?: number): string {
   if (!timestamp) return "";
@@ -41,17 +47,18 @@ export default function ChatsScreen() {
     loadMore,
   } = useChatsList(waId ?? "");
 
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>("default");
   const [query, setQuery] = useState("");
 
   const defaultPolicyActive = account?.default_bot_active_for_new_contacts ?? false;
+  const folders = effectiveFolders(account);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return chats.filter((chat) => {
       const phone = chat.phone || chat.id;
       const contact = contactsMap[phone] ?? contactsMap[chat.id];
-      const name = contact?.name ?? phone;
+      const name = resolveDisplayName(contact, phone);
       if (q) {
         const hit =
           name.toLowerCase().includes(q) ||
@@ -59,18 +66,36 @@ export default function ChatsScreen() {
           (chat.lastChatMessage ?? "").toLowerCase().includes(q);
         if (!hit) return false;
       }
-      const isDefault = chat.bot_active == null;
-      const effective = isDefault ? defaultPolicyActive : Boolean(chat.bot_active);
-      if (filter === "active" && !effective) return false;
-      if (filter === "paused" && effective) return false;
-      return true;
+      return matchesTab(chat, filter, defaultPolicyActive);
     });
   }, [chats, contactsMap, query, filter, defaultPolicyActive]);
+
+  const tabCounts = useMemo(() => {
+    const keys: TabKey[] = [
+      "default",
+      "active",
+      "paused",
+      ...folders.map((f) => f.key as TabKey),
+    ];
+    const counts: Record<string, number> = {};
+    for (const c of chats) {
+      for (const k of keys) {
+        if (matchesTab(c, k, defaultPolicyActive)) counts[k] = (counts[k] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }, [chats, folders, defaultPolicyActive]);
+
+  const statusTabs: { key: TabKey; label: string }[] = [
+    { key: "default", label: "Default" },
+    { key: "active", label: "Active" },
+    { key: "paused", label: "Paused" },
+  ];
 
   const renderRow = ({ item }: { item: WithId<Chat> }) => {
     const phone = item.phone || item.id;
     const contact = contactsMap[phone] ?? contactsMap[item.id];
-    const name = contact?.name ?? phone;
+    const name = resolveDisplayName(contact, phone);
     const isDefault = item.bot_active == null;
     const effective = isDefault ? defaultPolicyActive : Boolean(item.bot_active);
     const unread = item.unreadCount ?? 0;
@@ -129,17 +154,19 @@ export default function ChatsScreen() {
           onChangeText={setQuery}
         />
         <View style={styles.pills}>
-          {(["all", "active", "paused"] as Filter[]).map((f) => (
-            <TouchableOpacity
-              key={f}
-              style={[styles.pill, filter === f && styles.pillActive]}
-              onPress={() => setFilter(f)}
-            >
-              <Text style={[styles.pillText, filter === f && styles.pillTextActive]}>
-                {f === "all" ? "All" : f === "active" ? "Active" : "Paused"}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {[...statusTabs, ...folders.map((f) => ({ key: f.key as TabKey, label: f.name }))].map(
+            (tab) => (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.pill, filter === tab.key && styles.pillActive]}
+                onPress={() => setFilter(tab.key)}
+              >
+                <Text style={[styles.pillText, filter === tab.key && styles.pillTextActive]}>
+                  {tab.label} ({tabCounts[tab.key] ?? 0})
+                </Text>
+              </TouchableOpacity>
+            )
+          )}
         </View>
       </View>
 

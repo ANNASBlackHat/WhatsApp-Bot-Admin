@@ -296,6 +296,29 @@ export class WebChatDataSource implements ChatDataSource {
     await updateDoc(doc(this.db, chatDoc(waId, userPhone)), { unreadCount: 0 });
   }
 
+  async setChatFolder(
+    waId: string,
+    userPhone: string,
+    folderKey: string | null
+  ): Promise<void> {
+    const ref = doc(this.db, chatDoc(waId, userPhone));
+    await updateDoc(ref, { folder: folderKey }).catch(async () => {
+      await setDoc(ref, { folder: folderKey, phone: userPhone }, { merge: true });
+    });
+  }
+
+  async setContactDisplayName(
+    waId: string,
+    userPhone: string,
+    name: string | null
+  ): Promise<void> {
+    const ref = doc(this.db, contactDoc(waId, userPhone));
+    // `null` clears the field so the display falls back to the synced name.
+    await updateDoc(ref, { display_name: name }).catch(async () => {
+      await setDoc(ref, { display_name: name, phone: userPhone }, { merge: true });
+    });
+  }
+
   async sendManualReply(waId: string, userPhone: string, text: string): Promise<void> {
     const trimmed = text.trim();
     if (!trimmed) return;

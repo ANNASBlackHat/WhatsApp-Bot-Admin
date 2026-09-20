@@ -23,6 +23,7 @@ import {
 } from "@/lib/firestore-paths";
 import { Chat, Contact, WaAccount, WithId } from "@/types/firestore";
 import { formatChatTime, truncate, checkQuietHoursActive } from "@/lib/utils";
+import { resolveDisplayName } from "@/lib/chat-helpers";
 
 interface PageProps {
   params: Promise<{ waId: string }>;
@@ -335,7 +336,7 @@ export default function DashboardPage({ params }: PageProps) {
             {topActiveContacts.map((chat) => {
               const phone = chat.phone || chat.id;
               const contact = contactsMap[phone] || contactsMap[chat.id];
-              const displayName = contact?.name || phone;
+              const displayName = resolveDisplayName(contact, phone);
               const isDefaultPolicy =
                 chat.bot_active === null || chat.bot_active === undefined;
               const isEffectiveActive = isDefaultPolicy
