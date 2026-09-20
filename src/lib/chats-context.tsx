@@ -11,7 +11,9 @@ import { db } from "@/lib/firebase";
 // Data layer: all Firestore access goes through the shared ChatDataSource
 // interface (packages/data). The web app injects the JS-SDK implementation;
 // the mobile app will inject the native one. See packages/data/README.md.
-import { WebChatDataSource } from "../../packages/data/src/index";
+// NOTE: import the "/web" entry — never the package root — so React Native
+// code is never pulled into the Next.js bundle (Turbopack cannot parse it).
+import { WebChatDataSource } from "@app/data/web";
 import { Chat, Contact, WaAccount, WithId } from "@/types/firestore";
 
 /**

@@ -5,7 +5,7 @@
  * picks the implementation. Swapping to a mock for tests previews is a
  * one-line change here.
  */
-import { NativeChatDataSource } from "@app/data";
+import { NativeChatDataSource } from "@app/data/native";
 
 export const chatSource = new NativeChatDataSource();
 
