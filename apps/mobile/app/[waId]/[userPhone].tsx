@@ -15,6 +15,7 @@ import type { Message } from "@app/schema";
 import { parseMessageContent, resolveDisplayName } from "@app/schema";
 import { useThread } from "../../src/hooks";
 import { colors, fontSize, spacing } from "../../src/theme";
+import { ForwardMessageModal } from "../../src/components/ForwardMessageModal";
 
 function formatTime(timestamp?: number): string {
   if (!timestamp) return "";
@@ -29,13 +30,16 @@ export default function ThreadScreen() {
     waId: string;
     userPhone: string;
   }>();
-  const { snapshot, loading, loadingOlder, loadOlder, markingRead, markRead, sending, sendError, send } =
+  const { snapshot, loading, loadingOlder, loadOlder, markingRead, markRead, sending, sendError, send, sendMedia } =
     useThread(waId ?? "", userPhone ?? "");
 
   const listRef = useRef<FlatList>(null);
   const [nearBottom, setNearBottom] = useState(true);
   const firstPaint = useRef(true);
   const [draft, setDraft] = useState("");
+  const [forwardingMessage, setForwardingMessage] = useState<WithId<Message> | null>(null);
+  const [mediaUrl, setMediaUrl] = useState("");
+  const [showMediaInput, setShowMediaInput] = useState(false);
 
   const name = resolveDisplayName(snapshot.contact, snapshot.chat?.phone ?? userPhone ?? "");
   const unread = snapshot.chat?.unreadCount ?? 0;
@@ -92,7 +96,12 @@ export default function ThreadScreen() {
         <View style={[styles.bubble, incoming ? styles.bubbleIn : styles.bubbleOut]}>
           <View style={styles.bubbleMeta}>
             <Text style={styles.sender}>{incoming ? name : "Bot / Admin"}</Text>
-            <Text style={styles.metaTime}>{formatTime(item.timeMillis)}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+              <Text style={styles.metaTime}>{formatTime(item.timeMillis)}</Text>
+              <TouchableOpacity onPress={() => setForwardingMessage(item)}>
+                <Text style={styles.forwardBtnText}>↗</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           {item.message ? renderMessageText(item.message) : null}
           {!item.message && (item.imgUrl || item.fileUrl) ? (
@@ -191,10 +200,24 @@ export default function ThreadScreen() {
       )}
 
       {/* Manual reply composer */}
+      {showMediaInput && (
+        <View style={styles.mediaComposer}>
+          <TextInput
+            style={styles.input}
+            placeholder="Image URL..."
+            placeholderTextColor={colors.textMuted}
+            value={mediaUrl}
+            onChangeText={setMediaUrl}
+          />
+        </View>
+      )}
       <View style={styles.composer}>
         {sendError ? (
           <Text style={styles.sendError}>{sendError}</Text>
         ) : null}
+        <TouchableOpacity style={styles.attachBtn} onPress={() => setShowMediaInput(!showMediaInput)}>
+          <Text style={styles.attachBtnText}>+</Text>
+        </TouchableOpacity>
         <TextInput
           style={styles.input}
           placeholder="Type a manual reply..."
@@ -204,12 +227,19 @@ export default function ThreadScreen() {
           multiline
         />
         <TouchableOpacity
-          style={[styles.sendBtn, (sending || !draft.trim()) && styles.sendBtnDisabled]}
-          disabled={sending || !draft.trim()}
+          style={[styles.sendBtn, (sending || (!draft.trim() && !mediaUrl.trim())) && styles.sendBtnDisabled]}
+          disabled={sending || (!draft.trim() && !mediaUrl.trim())}
           onPress={() => {
-            const text = draft;
-            setDraft("");
-            void send(text);
+            if (mediaUrl.trim()) {
+              void sendMedia({ url: mediaUrl.trim(), type: "image", caption: draft });
+              setDraft("");
+              setMediaUrl("");
+              setShowMediaInput(false);
+            } else {
+              const text = draft;
+              setDraft("");
+              void send(text);
+            }
           }}
         >
           {sending ? (
@@ -219,6 +249,12 @@ export default function ThreadScreen() {
           )}
         </TouchableOpacity>
       </View>
+      <ForwardMessageModal
+        visible={!!forwardingMessage}
+        onClose={() => setForwardingMessage(null)}
+        waId={waId ?? ""}
+        messageToForward={forwardingMessage}
+      />
     </View>
   );
 }
@@ -329,4 +365,23 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: { opacity: 0.4 },
   sendBtnText: { color: colors.white, fontSize: fontSize.sm, fontWeight: "500" },
+  attachBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceHover,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attachBtnText: { fontSize: fontSize.lg, color: colors.textSecondary },
+  mediaComposer: {
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  forwardBtnText: {
+    fontSize: fontSize.md,
+    color: colors.active,
+  },
 });

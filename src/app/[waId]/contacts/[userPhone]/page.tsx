@@ -50,6 +50,7 @@ import { FormattedMessageText } from "@/components/formatted-message-text";
 import { ManualReplyBar } from "@/components/manual-reply-bar";
 import { ThreadHeader } from "@/components/chat/thread-header";
 import { MessageBubble } from "@/components/chat/message-bubble";
+import { ForwardMessageModal } from "@/components/chat/forward-message-modal";
 
 
 interface PageProps {
@@ -71,6 +72,7 @@ export default function ContactDetailPage({ params }: PageProps) {
   const chatSource = new WebChatDataSource(db);
   const [folderBusy, setFolderBusy] = useState(false);
   const [renameBusy, setRenameBusy] = useState(false);
+  const [forwardingMessage, setForwardingMessage] = useState<WithId<Message> | null>(null);
 
   const {
     chats,
@@ -552,6 +554,7 @@ export default function ContactDetailPage({ params }: PageProps) {
                     waId={waId}
                     displayName={displayName}
                     setLightboxImage={setLightboxImage}
+                    onForward={(msg) => setForwardingMessage(msg)}
                   />
                 );
               })}
@@ -620,6 +623,18 @@ export default function ContactDetailPage({ params }: PageProps) {
       <ImageLightbox
         src={lightboxImage}
         onClose={() => setLightboxImage(null)}
+      />
+
+      <ForwardMessageModal
+        isOpen={!!forwardingMessage}
+        onClose={() => setForwardingMessage(null)}
+        waId={waId}
+        messageToForward={forwardingMessage}
+        chats={chats}
+        contactsMap={contactsMap}
+        onForward={async (targetPhone, msg) => {
+          await chatSource.forwardMessage(waId, targetPhone, msg);
+        }}
       />
     </div>
   );

@@ -9,6 +9,7 @@ interface MessageBubbleProps {
   waId: string;
   displayName: string;
   setLightboxImage: (url: string) => void;
+  onForward?: (message: WithId<Message>) => void;
 }
 
 export function MessageBubble({
@@ -17,6 +18,7 @@ export function MessageBubble({
   waId,
   displayName,
   setLightboxImage,
+  onForward,
 }: MessageBubbleProps) {
   const isCustomer = msg.userType === "customer";
   const audioInfo = parseAudioMessage(msg);
@@ -51,7 +53,7 @@ export function MessageBubble({
         }`}
       >
         <div
-          className={`max-w-[85%] sm:max-w-[75%] min-w-0 rounded-lg px-3.5 py-2.5 text-xs shadow-2xs break-words [overflow-wrap:anywhere] ${
+          className={`group max-w-[85%] sm:max-w-[75%] min-w-0 rounded-lg px-3.5 py-2.5 text-xs shadow-2xs break-words [overflow-wrap:anywhere] ${
             isCustomer
               ? "bg-surface text-text-primary border border-border-custom"
               : "bg-accent-active-bg text-text-primary border border-accent-active/20"
@@ -61,6 +63,15 @@ export function MessageBubble({
           <div className="mb-1 flex items-center justify-between gap-3 text-[10px] font-medium text-text-secondary">
             <span>{isCustomer ? displayName : "Bot / Admin"}</span>
             <div className="flex items-center gap-1.5 shrink-0">
+              {onForward && (
+                <button
+                  onClick={() => onForward(msg)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-text-primary"
+                  title="Forward message"
+                >
+                  ↗
+                </button>
+              )}
               {msg.status === "pending" && (
                 <span className="font-sans text-[9px] text-accent-paused">
                   ⏳ Pending

@@ -337,6 +337,23 @@ export function useThread(waId: string, userPhone: string) {
     [waId, userPhone, sending]
   );
 
+  const sendMedia = useCallback(
+    async (media: { url: string; type: "image" | "document"; caption?: string; fileName?: string }) => {
+      if (sending || !waId || !userPhone) return;
+      setSending(true);
+      setSendError(null);
+      try {
+        await chatSource.sendMediaReply(waId, userPhone, media);
+      } catch (err) {
+        console.error("Failed to send media reply:", err);
+        setSendError("Failed to send media. Check your connection and try again.");
+      } finally {
+        setSending(false);
+      }
+    },
+    [waId, userPhone, sending]
+  );
+
   return {
     snapshot,
     loading,
@@ -347,5 +364,6 @@ export function useThread(waId: string, userPhone: string) {
     sending,
     sendError,
     send,
+    sendMedia,
   };
 }

@@ -1,13 +1,9 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { addDoc, collection, doc, setDoc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import {
-  chatDoc,
-  messagesCollection,
-  outgoingMessageCollection,
-} from "@/lib/firestore-paths";
+import { WebChatDataSource } from "@app/data/web";
+import { db, storage } from "@/lib/firebase";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
 interface ManualReplyBarProps {
   waId: string;
@@ -23,22 +19,26 @@ export const ManualReplyBar = React.memo(function ManualReplyBar({
   const [replyMessage, setReplyMessage] = useState<string>("");
   const [isSendingReply, setIsSendingReply] = useState<boolean>(false);
   const [replyStatus, setReplyStatus] = useState<string | null>(null);
+  
+  const [file, setFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const prevHeightRef = useRef<number>(38);
 
-  // Optimized auto-grow height logic to prevent layout thrashing
+  const chatSource = useRef(new WebChatDataSource(db)).current;
+
   useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
 
-    if (!replyMessage) {
+    if (!replyMessage && !file) {
       textarea.style.height = "38px";
       prevHeightRef.current = 38;
       return;
     }
 
-    // Only recalculate style height if scrollHeight changes beyond single line threshold
     textarea.style.height = "auto";
     const targetHeight = Math.min(textarea.scrollHeight, 144);
     if (targetHeight !== prevHeightRef.current) {
@@ -47,56 +47,71 @@ export const ManualReplyBar = React.memo(function ManualReplyBar({
     } else {
       textarea.style.height = `${targetHeight}px`;
     }
-  }, [replyMessage]);
+  }, [replyMessage, file]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const handleSendManualReply = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = replyMessage.trim();
-    if (!text || isSendingReply) return;
+    if ((!text && !file) || isSendingReply) return;
 
     try {
       setIsSendingReply(true);
       setReplyStatus(null);
-      const now = Date.now();
+      
+      if (file) {
+        const isImage = file.type.startsWith("image/");
+        const storageRef = ref(storage, `attachments/${waId}/${Date.now()}_${file.name}`);
+        const uploadTask = uploadBytesResumable(storageRef, file);
 
-      await addDoc(collection(db, outgoingMessageCollection()), {
-        from: waId,
-        to: userPhone,
-        message: text,
-        timestamp: now,
-      });
-
-      const msgRef = doc(collection(db, messagesCollection(waId, userPhone)));
-      await setDoc(msgRef, {
-        message: text,
-        sender: waId,
-        userType: "admin",
-        timeMillis: now,
-        status: "pending",
-        messageId: msgRef.id,
-      });
-
-      const targetChatRef = doc(db, chatDoc(waId, userPhone));
-      await updateDoc(targetChatRef, {
-        lastChatMessage: text,
-        lastChatTime: now,
-      }).catch(async () => {
-        await setDoc(
-          targetChatRef,
-          {
-            lastChatMessage: text,
-            lastChatTime: now,
-            phone: userPhone,
-          },
-          { merge: true }
-        );
-      });
+        await new Promise<void>((resolve, reject) => {
+          uploadTask.on(
+            "state_changed",
+            (snapshot) => {
+              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              setUploadProgress(progress);
+            },
+            (error) => {
+              reject(error);
+            },
+            async () => {
+              try {
+                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                await chatSource.sendMediaReply(waId, userPhone, {
+                  url: downloadURL,
+                  type: isImage ? 'image' : 'document',
+                  caption: text,
+                  fileName: file.name
+                });
+                resolve();
+              } catch (err) {
+                reject(err);
+              }
+            }
+          );
+        });
+      } else {
+        await chatSource.sendManualReply(waId, userPhone, text);
+      }
 
       setReplyMessage("");
+      setFile(null);
+      setUploadProgress(0);
+      if (fileInputRef.current) fileInputRef.current.value = "";
       if (textareaRef.current) {
         textareaRef.current.style.height = "38px";
       }
-      setReplyStatus("Manual reply sent & queued with status 'pending'.");
+      setReplyStatus("Manual reply sent successfully.");
       setTimeout(() => setReplyStatus(null), 3000);
       onMessageSent?.();
     } catch (err) {
@@ -110,7 +125,7 @@ export const ManualReplyBar = React.memo(function ManualReplyBar({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (replyMessage.trim() && !isSendingReply) {
+      if ((replyMessage.trim() || file) && !isSendingReply) {
         handleSendManualReply(e);
       }
     }
@@ -126,7 +141,45 @@ export const ManualReplyBar = React.memo(function ManualReplyBar({
           {replyStatus}
         </div>
       )}
+      
+      {file && (
+        <div className="mb-2 flex items-center justify-between rounded bg-surface-hover p-2 border border-border-custom text-xs">
+          <div className="flex items-center gap-2 truncate">
+            <span>{file.type.startsWith("image/") ? "📷" : "📎"}</span>
+            <span className="truncate max-w-[200px] text-text-primary font-medium">{file.name}</span>
+            <span className="text-text-muted">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+            {uploadProgress > 0 && uploadProgress < 100 && (
+              <span className="text-accent-active ml-2">{Math.round(uploadProgress)}%</span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handleRemoveFile}
+            className="text-text-muted hover:text-text-primary ml-4"
+            disabled={isSendingReply}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <div className="flex items-end gap-2">
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileSelect}
+          className="hidden"
+          accept="image/*, .pdf, .doc, .docx, .xls, .xlsx, .txt"
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isSendingReply}
+          className="inline-flex h-[38px] w-[38px] items-center justify-center rounded-md border border-border-custom bg-canvas text-text-secondary hover:bg-surface-hover hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-text-primary disabled:opacity-40 shrink-0"
+          title="Attach file"
+        >
+          📎
+        </button>
         <textarea
           ref={textareaRef}
           rows={1}
@@ -138,7 +191,7 @@ export const ManualReplyBar = React.memo(function ManualReplyBar({
         />
         <button
           type="submit"
-          disabled={isSendingReply || !replyMessage.trim()}
+          disabled={isSendingReply || (!replyMessage.trim() && !file)}
           className="inline-flex h-[38px] items-center justify-center rounded-md bg-text-primary px-4 text-xs font-medium text-surface transition-colors hover:bg-text-primary/90 focus:outline-none focus:ring-2 focus:ring-text-primary disabled:opacity-40 shrink-0"
         >
           {isSendingReply ? "Sending..." : "Send"}
