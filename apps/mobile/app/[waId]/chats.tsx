@@ -17,8 +17,11 @@ import {
   resolveDisplayName,
   type TabKey,
 } from "@app/schema";
-import { useChatsList } from "../../src/hooks";
+import { useAccounts, useChatsList } from "../../src/hooks";
 import { colors, fontSize, spacing } from "../../src/theme";
+import { AccountSwitcherModal } from "../../src/components/AccountSwitcherModal";
+import { auth } from "../../src/firebase";
+import { signOut } from "@react-native-firebase/auth";
 
 type Filter = TabKey;
 
@@ -34,6 +37,8 @@ function formatTime(timestamp?: number): string {
 
 export default function ChatsScreen() {
   const { waId } = useLocalSearchParams<{ waId: string }>();
+  const { accounts } = useAccounts();
+  const [switcherVisible, setSwitcherVisible] = useState(false);
   const {
     account,
     chats,
@@ -46,6 +51,9 @@ export default function ChatsScreen() {
     error,
     loadMore,
   } = useChatsList(waId ?? "");
+
+  const activeAccount = accounts.find((a) => a.waId === waId);
+  const currentDisplayName = activeAccount?.displayName || account?.display_name || waId || "Account";
 
   const [filter, setFilter] = useState<Filter>("default");
   const [query, setQuery] = useState("");
@@ -138,15 +146,43 @@ export default function ChatsScreen() {
     );
   };
 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.error("Sign out error:", e);
+    }
+  };
+
   return (
     <View style={styles.root}>
+      {/* Top Header with Account Switcher button (Gmail-style) */}
+      <View style={styles.topBar}>
+        <View style={styles.topBarLeft}>
+          <Text style={styles.appTitle}>Conversations</Text>
+          <Text style={styles.count}>
+            {totalChats != null && totalChats > chats.length
+              ? `Showing ${chats.length} of ${totalChats}`
+              : `${totalChats ?? chats.length} chats`}
+            {unreadTotal > 0 ? ` · ${unreadTotal} unread` : ""}
+          </Text>
+        </View>
+
+        {/* Gmail-style account profile avatar button */}
+        <TouchableOpacity
+          style={styles.profileBtn}
+          onPress={() => setSwitcherVisible(true)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.profileAvatar}>
+            <Text style={styles.profileAvatarText}>
+              {currentDisplayName.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.header}>
-        <Text style={styles.count}>
-          {totalChats != null && totalChats > chats.length
-            ? `Showing ${chats.length} of ${totalChats}`
-            : `${totalChats ?? chats.length} conversations`}
-          {unreadTotal > 0 ? ` · ${unreadTotal} unread` : ""}
-        </Text>
         <TextInput
           style={styles.search}
           placeholder="Search name, phone, message..."
@@ -169,6 +205,14 @@ export default function ChatsScreen() {
           )}
         </View>
       </View>
+
+      <AccountSwitcherModal
+        visible={switcherVisible}
+        currentWaId={waId ?? ""}
+        accounts={accounts}
+        onClose={() => setSwitcherVisible(false)}
+        onLogout={handleLogout}
+      />
 
       {loading ? (
         <View style={styles.center}>
@@ -213,7 +257,40 @@ export default function ChatsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.canvas },
-  header: { padding: spacing.md, gap: spacing.sm, backgroundColor: colors.surface },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xs,
+    backgroundColor: colors.surface,
+  },
+  topBarLeft: {
+    flex: 1,
+  },
+  appTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  profileBtn: {
+    padding: 2,
+  },
+  profileAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.active,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileAvatarText: {
+    fontSize: fontSize.sm,
+    fontWeight: "700",
+    color: colors.white,
+  },
+  header: { padding: spacing.md, paddingTop: spacing.xs, gap: spacing.sm, backgroundColor: colors.surface },
   count: { fontSize: fontSize.xs, color: colors.textSecondary },
   search: {
     backgroundColor: colors.canvas,

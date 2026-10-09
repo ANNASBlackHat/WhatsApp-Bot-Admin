@@ -1,8 +1,9 @@
 import { useRef, useState } from "react";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ActivityIndicator,
   FlatList,
+  Linking,
   StyleSheet,
   Text,
   TextInput,
@@ -11,7 +12,7 @@ import {
 } from "react-native";
 import type { WithId } from "@app/schema";
 import type { Message } from "@app/schema";
-import { resolveDisplayName } from "@app/schema";
+import { parseMessageContent, resolveDisplayName } from "@app/schema";
 import { useThread } from "../../src/hooks";
 import { colors, fontSize, spacing } from "../../src/theme";
 
@@ -44,6 +45,46 @@ export default function ThreadScreen() {
     ? defaultPolicy
     : Boolean(snapshot.chat?.bot_active);
 
+  const router = useRouter();
+
+  const handleOpenPhone = (targetPhone: string) => {
+    if (!waId || !targetPhone) return;
+    router.push(`/${encodeURIComponent(waId)}/${encodeURIComponent(targetPhone)}`);
+  };
+
+  const renderMessageText = (text: string) => {
+    const tokens = parseMessageContent(text);
+    return (
+      <Text style={styles.body}>
+        {tokens.map((token, idx) => {
+          if (token.type === "url") {
+            return (
+              <Text
+                key={idx}
+                style={styles.link}
+                onPress={() => Linking.openURL(token.href).catch((e) => console.error(e))}
+              >
+                {token.value}
+              </Text>
+            );
+          }
+          if (token.type === "wa_link" || token.type === "phone") {
+            return (
+              <Text
+                key={idx}
+                style={styles.waLink}
+                onPress={() => handleOpenPhone(token.phone)}
+              >
+                {token.value}
+              </Text>
+            );
+          }
+          return <Text key={idx}>{token.value}</Text>;
+        })}
+      </Text>
+    );
+  };
+
   const renderMessage = ({ item }: { item: WithId<Message> }) => {
     const incoming = item.userType === "customer";
     return (
@@ -53,7 +94,7 @@ export default function ThreadScreen() {
             <Text style={styles.sender}>{incoming ? name : "Bot / Admin"}</Text>
             <Text style={styles.metaTime}>{formatTime(item.timeMillis)}</Text>
           </View>
-          {item.message ? <Text style={styles.body}>{item.message}</Text> : null}
+          {item.message ? renderMessageText(item.message) : null}
           {!item.message && (item.imgUrl || item.fileUrl) ? (
             <Text style={styles.body}>[attachment — open web app to view]</Text>
           ) : null}
@@ -246,6 +287,14 @@ const styles = StyleSheet.create({
   sender: { fontSize: 10, fontWeight: "600", color: colors.textSecondary },
   metaTime: { fontSize: 10, color: colors.textMuted },
   body: { fontSize: fontSize.sm, color: colors.textPrimary },
+  link: { fontSize: fontSize.sm, color: colors.active, textDecorationLine: "underline" },
+  waLink: {
+    fontSize: fontSize.sm,
+    color: colors.active,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+    fontFamily: "monospace",
+  },
   pending: { fontSize: 10, color: colors.textMuted, marginTop: 2 },
   pendingWarn: { fontSize: 10, color: colors.danger, marginTop: 2 },
   composer: {

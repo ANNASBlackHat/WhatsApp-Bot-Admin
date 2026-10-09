@@ -73,3 +73,111 @@ export function matchesTab(
 
   return (chat.folder ?? null) === tab;
 }
+
+export type MessageToken =
+  | { type: "text"; value: string }
+  | { type: "url"; value: string; href: string }
+  | { type: "phone"; value: string; phone: string }
+  | { type: "wa_link"; value: string; phone: string };
+
+/**
+ * Normalizes phone numbers to standard format without symbols (e.g. +628123 -> 628123).
+ * If it starts with local prefix '0', replaces with country code if given or keeps clean.
+ */
+export function normalizePhoneNumber(raw: string): string {
+  // Strip all non-digits
+  const digits = raw.replace(/\D/g, "");
+  // If local Indonesian '08xxx', standard WhatsApp phone is '628xxx'
+  if (digits.startsWith("08")) {
+    return "62" + digits.slice(1);
+  }
+  return digits;
+}
+
+/**
+ * Parses message body into text chunks, standard web links, wa.me links, and phone numbers.
+ * Allows web and mobile to render interactive in-app routing.
+ */
+export function parseMessageContent(text: string): MessageToken[] {
+  if (!text) return [];
+
+  // Match:
+  // 1. Full URLs: https?://...
+  // 2. wa.me links: (?:https?:\/\/)?wa\.me\/(?:\+?[0-9]+) or api.whatsapp.com/send\?phone=([0-9]+)
+  // 3. International or national phone numbers:
+  //    - e.g. +6281234567890, 081234567890, +12345678901
+  //    We require at least 9 to 15 digits to avoid misidentifying small numbers, dates or codes.
+  const tokenRegex = /(https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b[-a-zA-Z0-9()@:%_+.~#?&//=]*)|(?:https?:\/\/)?(?:wa\.me|api\.whatsapp\.com\/send\?phone=)\/?[+]?([0-9]{7,15})|(?:\+?[0-9]{1,3}[-.\s]?)?\(?[0-9]{2,4}\)?[-.\s]?[0-9]{3,4}[-.\s]?[0-9]{3,6}/g;
+
+  const tokens: MessageToken[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = tokenRegex.exec(text)) !== null) {
+    const matchStart = match.index;
+    const matchText = match[0];
+    const matchEnd = matchStart + matchText.length;
+
+    // Any text before match
+    if (matchStart > lastIndex) {
+      tokens.push({
+        type: "text",
+        value: text.slice(lastIndex, matchStart),
+      });
+    }
+
+    // Check if it's a wa.me / api.whatsapp.com link
+    const waMeMatch = matchText.match(/(?:https?:\/\/)?(?:wa\.me\/|api\.whatsapp\.com\/send\?phone=)\+?([0-9]{7,15})/i);
+    if (waMeMatch) {
+      const phoneDigits = normalizePhoneNumber(waMeMatch[1]);
+      tokens.push({
+        type: "wa_link",
+        value: matchText,
+        phone: phoneDigits,
+      });
+      lastIndex = matchEnd;
+      continue;
+    }
+
+    // Check if it's a regular URL
+    if (/^https?:\/\//i.test(matchText)) {
+      tokens.push({
+        type: "url",
+        value: matchText,
+        href: matchText,
+      });
+      lastIndex = matchEnd;
+      continue;
+    }
+
+    // Check if it's a phone number (must have at least 8 digits and not just a plain year/short number)
+    const digitsOnly = matchText.replace(/\D/g, "");
+    if (digitsOnly.length >= 8 && digitsOnly.length <= 15) {
+      // Avoid matching simple 4-digit years or time expressions
+      tokens.push({
+        type: "phone",
+        value: matchText,
+        phone: normalizePhoneNumber(matchText),
+      });
+      lastIndex = matchEnd;
+      continue;
+    }
+
+    // Fallback: treated as plain text
+    tokens.push({
+      type: "text",
+      value: matchText,
+    });
+
+    lastIndex = matchEnd;
+  }
+
+  if (lastIndex < text.length) {
+    tokens.push({
+      type: "text",
+      value: text.slice(lastIndex),
+    });
+  }
+
+  return tokens;
+}

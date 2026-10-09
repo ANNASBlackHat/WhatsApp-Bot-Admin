@@ -167,4 +167,34 @@ assert.deepStrictEqual(
   "built-ins first, customs appended, built-in labels customizable"
 );
 
+// -- normalizePhoneNumber & parseMessageContent ------------------------------
+import { normalizePhoneNumber, parseMessageContent } from "@/lib/chat-helpers";
+
+assert.strictEqual(
+  normalizePhoneNumber("081234567890"),
+  "6281234567890",
+  "08 prefix should normalize to 62"
+);
+
+assert.strictEqual(
+  normalizePhoneNumber("+62 812-3456-7890"),
+  "6281234567890",
+  "formatted international number should strip symbols"
+);
+
+const parsedTokens = parseMessageContent(
+  "Hello, check out https://example.com or contact wa.me/6281234567890 or call +628987654321 for info."
+);
+
+assert.strictEqual(parsedTokens.length > 3, true, "Tokens should parse successfully");
+
+const urlToken = parsedTokens.find((t) => t.type === "url");
+assert.ok(urlToken && urlToken.value === "https://example.com", "URL token matched");
+
+const waToken = parsedTokens.find((t) => t.type === "wa_link");
+assert.ok(waToken && waToken.phone === "6281234567890", "wa.me link token matched");
+
+const phoneToken = parsedTokens.find((t) => t.type === "phone");
+assert.ok(phoneToken && phoneToken.phone === "628987654321", "Phone token matched");
+
 console.log("✓ All chat-helpers unit tests passed successfully!");

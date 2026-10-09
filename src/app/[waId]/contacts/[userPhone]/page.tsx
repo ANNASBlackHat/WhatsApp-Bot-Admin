@@ -97,7 +97,50 @@ export default function ContactDetailPage({ params }: PageProps) {
 
   const [isMarkingRead, setIsMarkingRead] = useState<boolean>(false);
   const [showNewMessageBtn, setShowNewMessageBtn] = useState<boolean>(false);
+
+  // Left contacts pane & Right controls panel persistence across chats
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState<boolean>(true);
   const [isControlsOpen, setIsControlsOpen] = useState<boolean>(true);
+
+  // Initialize panel preferences from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedLeft = localStorage.getItem("chat_left_panel_open");
+      if (savedLeft !== null) {
+        setIsLeftPanelOpen(savedLeft === "true");
+      }
+      const savedControls = localStorage.getItem("chat_controls_panel_open");
+      if (savedControls !== null) {
+        setIsControlsOpen(savedControls === "true");
+      }
+    } catch (e) {
+      console.error("Failed to read panel preferences from localStorage:", e);
+    }
+  }, []);
+
+  const toggleLeftPanel = () => {
+    setIsLeftPanelOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("chat_left_panel_open", String(next));
+      } catch (e) {
+        console.error("Failed to save left panel preference:", e);
+      }
+      return next;
+    });
+  };
+
+  const toggleControlsPanel = () => {
+    setIsControlsOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("chat_controls_panel_open", String(next));
+      } catch (e) {
+        console.error("Failed to save controls panel preference:", e);
+      }
+      return next;
+    });
+  };
 
   // Per-thread message page size (resets naturally per contact, no reset
   // effect needed since the key includes userPhone).
@@ -423,19 +466,25 @@ export default function ContactDetailPage({ params }: PageProps) {
   return (
     <div className="flex h-[calc(100vh-3.5rem)] w-full overflow-hidden bg-canvas">
       {/* Left Pane: Contacts List (Desktop only, hidden on mobile) */}
-      <div className="hidden lg:block w-[320px] shrink-0 h-full border-r border-border-custom">
-        <ContactsListPane
-          waId={waId}
-          chats={chats}
-          contactsMap={contactsMap}
-          account={account}
-          loading={loadingSharedChats}
-          selectedUserPhone={userPhone}
-          totalCount={totalChatsCount}
-          hasMore={hasMoreChats}
-          loadingMore={loadingMoreChats}
-          onLoadMore={loadMoreChats}
-        />
+      <div
+        className={`hidden lg:block shrink-0 h-full border-r border-border-custom transition-[width,opacity] duration-200 ease-in-out ${
+          isLeftPanelOpen ? "w-[320px] opacity-100" : "w-0 overflow-hidden border-r-0 opacity-0 pointer-events-none"
+        }`}
+      >
+        <div className="w-[320px] h-full">
+          <ContactsListPane
+            waId={waId}
+            chats={chats}
+            contactsMap={contactsMap}
+            account={account}
+            loading={loadingSharedChats}
+            selectedUserPhone={userPhone}
+            totalCount={totalChatsCount}
+            hasMore={hasMoreChats}
+            loadingMore={loadingMoreChats}
+            onLoadMore={loadMoreChats}
+          />
+        </div>
       </div>
 
       {/* Middle & Right Container (Desktop: side-by-side, Mobile: stacked) */}
@@ -445,6 +494,25 @@ export default function ContactDetailPage({ params }: PageProps) {
           {/* Thread Header */}
           <div className="flex items-center justify-between border-b border-border-custom bg-canvas px-4 py-3 sm:px-6 shrink-0">
             <div className="flex items-center gap-3">
+              {/* Desktop Left Panel Toggle Button */}
+              <button
+                type="button"
+                onClick={toggleLeftPanel}
+                title={isLeftPanelOpen ? "Hide contacts list" : "Show contacts list"}
+                aria-expanded={isLeftPanelOpen}
+                className="hidden lg:inline-flex items-center justify-center rounded border border-border-custom bg-surface px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary mr-0.5"
+              >
+                <svg
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+
               {/* Mobile Back Button (hidden on desktop) */}
               <Link
                 href={`/${encodeURIComponent(waId)}`}
@@ -516,7 +584,7 @@ export default function ContactDetailPage({ params }: PageProps) {
               {/* Right panel toggle */}
               <button
                 type="button"
-                onClick={() => setIsControlsOpen((v) => !v)}
+                onClick={toggleControlsPanel}
                 title={isControlsOpen ? "Hide details panel" : "Show details panel"}
                 aria-expanded={isControlsOpen}
                 className="inline-flex items-center justify-center rounded border border-border-custom bg-surface px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
@@ -633,7 +701,7 @@ export default function ContactDetailPage({ params }: PageProps) {
                         {/* Quoted message placeholder */}
                         {msg.messageQuoted && (
                           <div className="mb-2 rounded border-l-2 border-text-secondary bg-surface-hover p-1.5 text-[11px] text-text-secondary break-words [overflow-wrap:anywhere]">
-                            <FormattedMessageText text={truncate(msg.messageQuoted, 80)} />
+                            <FormattedMessageText text={truncate(msg.messageQuoted, 80)} waId={waId} />
                           </div>
                         )}
 
@@ -641,7 +709,7 @@ export default function ContactDetailPage({ params }: PageProps) {
                         {audioInfo.isAudio ? (
                           <div className="space-y-1.5 min-w-0">
                             {audioInfo.displayText && (
-                              <FormattedMessageText text={audioInfo.displayText} />
+                              <FormattedMessageText text={audioInfo.displayText} waId={waId} />
                             )}
                             {audioInfo.audioUrl ? (
                               <div className="mt-1.5 max-w-full">
@@ -662,7 +730,7 @@ export default function ContactDetailPage({ params }: PageProps) {
                           </div>
                         ) : (
                           /* Text Message */
-                          msg.message && <FormattedMessageText text={msg.message} />
+                          msg.message && <FormattedMessageText text={msg.message} waId={waId} />
                         )}
 
                         {/* Inline Image Media Rendering (if not audio) */}
