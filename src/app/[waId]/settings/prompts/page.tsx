@@ -15,6 +15,10 @@ import { db } from "@/lib/firebase";
 import { promptDoc, promptsCollection } from "@/lib/firestore-paths";
 import { Prompt, WithId } from "@/types/firestore";
 import { formatChatTime } from "@/lib/utils";
+import { PromptEditorForm } from "@/components/prompts/prompt-editor-form";
+import { PromptCard } from "@/components/prompts/prompt-card";
+import { DeletePromptModal } from "@/components/prompts/delete-prompt-modal";
+
 
 // Verbatim Nindia persona prompt text from core/ai_prompt.go for seeding
 const NINDIA_SEED_PROMPT = `Nama kamu adalah Nindia. Kamu adalah seorang wanita berusia 20-an awal (sekitar 21-22 tahun).
@@ -295,73 +299,18 @@ export default function PromptsPage({ params }: PageProps) {
       {/* Main Layout: Form (left/top) + List (right/bottom) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left Column: Form Card */}
-        <div className="rounded-lg border border-border-custom bg-surface p-5 shadow-xs lg:col-span-1 space-y-4">
-          <div className="flex items-center justify-between border-b border-border-custom pb-3">
-            <h2 className="text-xs font-medium uppercase tracking-wider text-text-secondary">
-              {isEditing ? "Edit System Prompt" : "Create New Prompt"}
-            </h2>
-            {isEditing && (
-              <button
-                type="button"
-                onClick={resetForm}
-                className="text-xs text-text-secondary underline hover:text-text-primary"
-              >
-                Cancel edit
-              </button>
-            )}
-          </div>
-
-          <form onSubmit={handleSavePrompt} className="space-y-4">
-            <div>
-              <label htmlFor="prompt-name" className="block text-xs font-medium text-text-primary mb-1">
-                Prompt Name
-              </label>
-              <input
-                id="prompt-name"
-                type="text"
-                placeholder="e.g. Nindia Persona v1"
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                className="w-full rounded border border-border-custom bg-canvas px-3 py-2 text-xs text-text-primary placeholder-text-muted focus:border-text-primary focus:bg-surface focus:outline-none focus:ring-1 focus:ring-text-primary"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="prompt-content" className="block text-xs font-medium text-text-primary mb-1">
-                System Instructions (Content)
-              </label>
-              <textarea
-                id="prompt-content"
-                rows={10}
-                placeholder="Enter multi-line system prompt instructions here..."
-                value={contentInput}
-                onChange={(e) => setContentInput(e.target.value)}
-                className="w-full rounded border border-border-custom bg-canvas p-3 text-xs font-mono text-text-primary placeholder-text-muted focus:border-text-primary focus:bg-surface focus:outline-none focus:ring-1 focus:ring-text-primary"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                id="is-default-checkbox"
-                type="checkbox"
-                checked={isDefaultInput}
-                onChange={(e) => setIsDefaultInput(e.target.checked)}
-                className="h-4 w-4 rounded border-border-custom text-text-primary focus:ring-text-primary"
-              />
-              <label htmlFor="is-default-checkbox" className="text-xs text-text-primary">
-                Set as default system prompt for account
-              </label>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="w-full rounded bg-text-primary py-2 text-xs font-medium text-surface transition-colors hover:bg-text-primary/90 focus:outline-none focus:ring-2 focus:ring-text-primary disabled:opacity-50"
-            >
-              {isSaving ? "Saving..." : isEditing ? "Update Prompt" : "Create Prompt"}
-            </button>
-          </form>
-        </div>
+        <PromptEditorForm
+          isEditing={isEditing}
+          nameInput={nameInput}
+          setNameInput={setNameInput}
+          contentInput={contentInput}
+          setContentInput={setContentInput}
+          isDefaultInput={isDefaultInput}
+          setIsDefaultInput={setIsDefaultInput}
+          isSaving={isSaving}
+          handleSavePrompt={handleSavePrompt}
+          resetForm={resetForm}
+        />
 
         {/* Right Column: Prompts List Container */}
         <div className="overflow-hidden rounded-lg border border-border-custom bg-surface shadow-xs lg:col-span-2">
@@ -391,56 +340,13 @@ export default function PromptsPage({ params }: PageProps) {
           ) : (
             <div className="divide-y divide-border-custom">
               {prompts.map((p) => (
-                <div key={p.id} className="p-5 space-y-3 transition-colors hover:bg-canvas">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-medium text-text-primary">{p.name}</h3>
-                      {p.is_default && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-accent-active-bg px-2.5 py-0.5 text-[10px] font-medium text-accent-active">
-                          <span className="h-1.5 w-1.5 rounded-full bg-accent-active" />
-                          Default Prompt
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {!p.is_default && (
-                        <button
-                          type="button"
-                          onClick={() => handleSetAsDefault(p.id)}
-                          className="rounded border border-border-custom bg-surface px-2.5 py-1 text-[11px] font-medium text-accent-active transition-colors hover:bg-accent-active-bg"
-                        >
-                          Make Default
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => startEdit(p)}
-                        className="rounded border border-border-custom bg-surface px-2.5 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(p)}
-                        className="rounded border border-border-custom bg-surface px-2.5 py-1 text-[11px] font-medium text-accent-danger transition-colors hover:bg-accent-danger-bg"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-
-                  <p className="whitespace-pre-wrap font-mono text-xs text-text-secondary bg-canvas p-3 rounded border border-border-custom max-h-36 overflow-y-auto">
-                    {p.content}
-                  </p>
-
-                  <div className="flex items-center justify-between text-[11px] text-text-muted">
-                    <span>Modified: {formatChatTime(p.timeModified)}</span>
-                    <span className="font-mono text-[10px]">ID: {p.id}</span>
-                  </div>
-                </div>
+                <PromptCard
+                  key={p.id}
+                  prompt={p}
+                  handleSetAsDefault={handleSetAsDefault}
+                  startEdit={startEdit}
+                  setDeleteTarget={setDeleteTarget}
+                />
               ))}
             </div>
           )}
@@ -449,38 +355,12 @@ export default function PromptsPage({ params }: PageProps) {
 
       {/* Delete Confirmation Modal */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-text-primary/40 p-4">
-          <div className="w-full max-w-md rounded-lg border border-border-custom bg-surface p-6 shadow-lg space-y-4">
-            <h3 className="text-base font-medium text-text-primary">Delete Prompt Template?</h3>
-            <p className="text-xs leading-relaxed text-text-secondary">
-              Are you sure you want to delete prompt &quot;<strong>{deleteTarget.name}</strong>&quot;?
-              {deleteTarget.is_default && (
-                <span className="block mt-1 text-accent-danger font-medium">
-                  Warning: You cannot delete the active default prompt without setting another prompt as default first.
-                </span>
-              )}
-            </p>
-
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                type="button"
-                disabled={isDeleting}
-                onClick={() => setDeleteTarget(null)}
-                className="rounded border border-border-custom bg-canvas px-4 py-2 text-xs font-medium text-text-primary transition-colors hover:bg-surface-hover"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isDeleting || deleteTarget.is_default}
-                onClick={handleDeletePrompt}
-                className="rounded bg-accent-danger px-4 py-2 text-xs font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-              >
-                {isDeleting ? "Deleting..." : "Delete Prompt"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <DeletePromptModal
+          deleteTarget={deleteTarget}
+          isDeleting={isDeleting}
+          setDeleteTarget={setDeleteTarget}
+          handleDeletePrompt={handleDeletePrompt}
+        />
       )}
     </main>
   );

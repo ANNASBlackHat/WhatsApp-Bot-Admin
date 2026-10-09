@@ -7,6 +7,10 @@ import { db } from "@/lib/firebase";
 import { waAccountDoc, chatCollection } from "@/lib/firestore-paths";
 import { WaAccount } from "@/types/firestore";
 import { BUILTIN_FOLDER_KEYS, FOLDER_DEFAULTS } from "@/lib/chat-helpers";
+import { GlobalKillSwitchCard } from "@/components/settings/global-kill-switch-card";
+import { QuietHoursCard } from "@/components/settings/quiet-hours-card";
+import { ChatFoldersManager } from "@/components/settings/chat-folders-manager";
+
 
 interface PageProps {
   params: Promise<{ waId: string }>;
@@ -303,136 +307,29 @@ export default function SettingsPage({ params }: PageProps) {
       </div>
 
       {/* 1. Global Master Kill Switch Section */}
-      <div className="rounded-lg border border-accent-danger/30 bg-accent-danger-bg p-5 shadow-xs">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-accent-danger animate-pulse" />
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-accent-danger">
-                Global Master Kill Switch
-              </h2>
-            </div>
-            <p className="text-xs text-text-primary leading-relaxed">
-              Bound to <code className="font-mono bg-surface px-1 py-0.5 rounded text-[11px]">wa_bot/{waId}.is_bot_active</code>. Turning this OFF immediately stops AI auto-replies across <strong>ALL {totalChatsCount} contacts</strong> on this account.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 shrink-0">
-            <span className="text-xs font-medium text-text-primary">
-              {isGlobalActive ? "Global Bot ON" : "Global Bot OFF"}
-            </span>
-
-            <button
-              type="button"
-              disabled={updatingGlobal || loading}
-              onClick={() => handleInitiateGlobalToggle(!isGlobalActive)}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent-danger focus:ring-offset-2 disabled:opacity-50 ${
-                isGlobalActive ? "bg-accent-active" : "bg-accent-danger"
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-surface shadow-sm transition duration-150 ease-in-out ${
-                  isGlobalActive ? "translate-x-5" : "translate-x-0"
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-      </div>
+      <GlobalKillSwitchCard
+        totalChatsCount={totalChatsCount}
+        isGlobalActive={isGlobalActive}
+        updatingGlobal={updatingGlobal}
+        loading={loading}
+        handleInitiateGlobalToggle={handleInitiateGlobalToggle}
+      />
 
       {/* 2. Scheduled Quiet Hours Section (Task 15) */}
-      <div className="rounded-lg border border-border-custom bg-surface p-5 shadow-xs space-y-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border-custom pb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-base">🌙</span>
-              <h2 className="text-sm font-medium text-text-primary">Scheduled Quiet Hours</h2>
-            </div>
-            <p className="text-xs text-text-secondary">
-              Bound to <code className="font-mono bg-canvas px-1 py-0.5 rounded">wa_bot/{waId}.quiet_hours</code>. Pauses AI auto-replies across all contacts during specified hours.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 shrink-0">
-            <span className="text-xs font-medium text-text-primary">
-              {quietHoursEnabled ? "Quiet Hours ON" : "Quiet Hours OFF"}
-            </span>
-
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => setQuietHoursEnabled(!quietHoursEnabled)}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-text-primary focus:ring-offset-2 ${
-                quietHoursEnabled ? "bg-accent-active" : "bg-text-muted"
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-surface shadow-sm transition duration-150 ease-in-out ${
-                  quietHoursEnabled ? "translate-x-5" : "translate-x-0"
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-
-        <form onSubmit={handleSaveQuietHours} className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div>
-              <label htmlFor="quiet-start-time" className="block text-xs font-medium text-text-primary mb-1">
-                Start Time (24h)
-              </label>
-              <input
-                id="quiet-start-time"
-                type="time"
-                value={quietStartTime}
-                onChange={(e) => setQuietStartTime(e.target.value)}
-                className="w-full rounded border border-border-custom bg-canvas px-3 py-2 text-xs text-text-primary focus:border-text-primary focus:bg-surface focus:outline-none focus:ring-1 focus:ring-text-primary"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="quiet-end-time" className="block text-xs font-medium text-text-primary mb-1">
-                End Time (24h)
-              </label>
-              <input
-                id="quiet-end-time"
-                type="time"
-                value={quietEndTime}
-                onChange={(e) => setQuietEndTime(e.target.value)}
-                className="w-full rounded border border-border-custom bg-canvas px-3 py-2 text-xs text-text-primary focus:border-text-primary focus:bg-surface focus:outline-none focus:ring-1 focus:ring-text-primary"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="quiet-timezone" className="block text-xs font-medium text-text-primary mb-1">
-                Timezone
-              </label>
-              <input
-                id="quiet-timezone"
-                type="text"
-                value={quietTimezone}
-                onChange={(e) => setQuietTimezone(e.target.value)}
-                placeholder="e.g. Asia/Jakarta"
-                className="w-full rounded border border-border-custom bg-canvas px-3 py-2 text-xs text-text-primary focus:border-text-primary focus:bg-surface focus:outline-none focus:ring-1 focus:ring-text-primary"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
-            {quietSaveStatus ? (
-              <span className="text-xs font-medium text-accent-active">{quietSaveStatus}</span>
-            ) : <span />}
-
-            <button
-              type="submit"
-              disabled={updatingQuiet || loading}
-              className="rounded bg-text-primary px-4 py-2 text-xs font-medium text-surface transition-colors hover:bg-text-primary/90 focus:outline-none focus:ring-2 focus:ring-text-primary disabled:opacity-50"
-            >
-              {updatingQuiet ? "Saving Quiet Hours..." : "Save Quiet Hours Settings"}
-            </button>
-          </div>
-        </form>
-      </div>
+      <QuietHoursCard
+        quietHoursEnabled={quietHoursEnabled}
+        setQuietHoursEnabled={setQuietHoursEnabled}
+        quietStartTime={quietStartTime}
+        setQuietStartTime={setQuietStartTime}
+        quietEndTime={quietEndTime}
+        setQuietEndTime={setQuietEndTime}
+        quietTimezone={quietTimezone}
+        setQuietTimezone={setQuietTimezone}
+        loading={loading}
+        updatingQuiet={updatingQuiet}
+        quietSaveStatus={quietSaveStatus}
+        handleSaveQuietHours={handleSaveQuietHours}
+      />
 
       {/* 3. Default Policy for New Contacts Card */}
 
@@ -471,110 +368,23 @@ export default function SettingsPage({ params }: PageProps) {
       </div>
 
       {/* 3b. Chat Folders Section */}
-      <div className="rounded-lg border border-border-custom bg-surface p-5 shadow-xs space-y-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-base">🗂️</span>
-            <h2 className="text-sm font-medium text-text-primary">Chat Folders</h2>
-          </div>
-          <p className="text-xs text-text-secondary">
-            Bound to <code className="font-mono bg-canvas px-1 py-0.5 rounded">wa_bot/{waId}.folders</code>. Renames built-in tab labels or adds custom folder tabs. Removing a custom folder moves its chats back to the default view.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {builtins.map((b) => (
-            <div key={b.key}>
-              <label htmlFor={`folder-label-${b.key}`} className="block text-[11px] font-medium text-text-primary mb-1">
-                Built-in: “{b.name}” label
-              </label>
-              <input
-                id={`folder-label-${b.key}`}
-                type="text"
-                value={shownBuiltins[b.key] ?? b.name}
-                onChange={(e) => {
-                  ensureSeeded();
-                  setDraftBuiltins((prev) => ({ ...prev, [b.key]: e.target.value }));
-                }}
-                className="w-full rounded border border-border-custom bg-canvas px-3 py-2 text-xs text-text-primary focus:border-text-primary focus:outline-none focus:ring-1 focus:ring-text-primary"
-              />
-            </div>
-          ))}
-        </div>
-
-        {shownCustoms.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-[11px] font-medium text-text-primary">Custom folders</p>
-            {shownCustoms.map((f) => (
-              <div key={f.key} className="flex items-center gap-2">
-                <input
-                  type="text"
-                  defaultValue={f.name}
-                  key={`${f.key}-${f.name}`}
-                  onChange={(e) => {
-                    ensureSeeded();
-                    setDraftCustoms((prev) =>
-                      prev.map((c) => (c.key === f.key ? { ...c, name: e.target.value } : c))
-                    );
-                  }}
-                  className="flex-1 rounded border border-border-custom bg-canvas px-3 py-2 text-xs text-text-primary focus:border-text-primary focus:outline-none focus:ring-1 focus:ring-text-primary"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveCustomFolder(f.key)}
-                  className="rounded border border-accent-danger/30 bg-accent-danger-bg px-2.5 py-2 text-[11px] font-medium text-accent-danger hover:bg-accent-danger/20"
-                  title={`Remove “${f.name}” (chats in it return to the default view)`}
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="flex items-end gap-2">
-          <div className="flex-1">
-            <label htmlFor="new-folder-name" className="block text-[11px] font-medium text-text-primary mb-1">
-              Add custom folder
-            </label>
-            <input
-              id="new-folder-name"
-              type="text"
-              value={newFolderName}
-              placeholder="e.g. Clients, VIP"
-              onChange={(e) => setNewFolderName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAddCustomFolder()}
-              className="w-full rounded border border-border-custom bg-canvas px-3 py-2 text-xs text-text-primary placeholder-text-muted focus:border-text-primary focus:outline-none focus:ring-1 focus:ring-text-primary"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={handleAddCustomFolder}
-            disabled={!newFolderName.trim()}
-            className="rounded border border-border-custom bg-surface px-3 py-2 text-xs font-medium text-text-primary hover:bg-surface-hover disabled:opacity-50"
-          >
-            Add
-          </button>
-        </div>
-
-        <div className="flex items-center justify-between pt-1">
-          {folderSaveStatus ? (
-            <span className={`text-xs font-medium ${folderSaveStatus.includes("saved") ? "text-accent-active" : "text-accent-danger"}`}>
-              {folderSaveStatus}
-            </span>
-          ) : (
-            <span />
-          )}
-          <button
-            type="button"
-            onClick={handleSaveFolders}
-            disabled={updatingFolders || loading || !hasEdits}
-            className="rounded bg-text-primary px-4 py-2 text-xs font-medium text-surface transition-colors hover:bg-text-primary/90 disabled:opacity-50"
-          >
-            {updatingFolders ? "Saving…" : "Save Folders"}
-          </button>
-        </div>
-      </div>
+      <ChatFoldersManager
+        builtins={builtins}
+        shownBuiltins={shownBuiltins}
+        setDraftBuiltins={setDraftBuiltins}
+        shownCustoms={shownCustoms}
+        setDraftCustoms={setDraftCustoms}
+        ensureSeeded={ensureSeeded}
+        handleRemoveCustomFolder={handleRemoveCustomFolder}
+        newFolderName={newFolderName}
+        setNewFolderName={setNewFolderName}
+        handleAddCustomFolder={handleAddCustomFolder}
+        folderSaveStatus={folderSaveStatus}
+        handleSaveFolders={handleSaveFolders}
+        updatingFolders={updatingFolders}
+        loading={loading}
+        hasEdits={hasEdits}
+      />
 
       {/* 3. Link to Prompt Library Card */}
       <div className="rounded-lg border border-border-custom bg-surface p-5 shadow-xs flex items-center justify-between">

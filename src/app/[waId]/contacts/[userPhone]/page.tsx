@@ -48,6 +48,9 @@ import { ContactControlsPanel } from "@/components/contact-controls-panel";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { FormattedMessageText } from "@/components/formatted-message-text";
 import { ManualReplyBar } from "@/components/manual-reply-bar";
+import { ThreadHeader } from "@/components/chat/thread-header";
+import { MessageBubble } from "@/components/chat/message-bubble";
+
 
 interface PageProps {
   params: Promise<{ waId: string; userPhone: string }>;
@@ -492,117 +495,20 @@ export default function ContactDetailPage({ params }: PageProps) {
         {/* Middle Column: Chat Thread Viewer */}
         <div className="flex-1 h-full flex flex-col min-w-0 bg-surface border-b lg:border-b-0 lg:border-r border-border-custom">
           {/* Thread Header */}
-          <div className="flex items-center justify-between border-b border-border-custom bg-canvas px-4 py-3 sm:px-6 shrink-0">
-            <div className="flex items-center gap-3">
-              {/* Desktop Left Panel Toggle Button */}
-              <button
-                type="button"
-                onClick={toggleLeftPanel}
-                title={isLeftPanelOpen ? "Hide contacts list" : "Show contacts list"}
-                aria-expanded={isLeftPanelOpen}
-                className="hidden lg:inline-flex items-center justify-center rounded border border-border-custom bg-surface px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary mr-0.5"
-              >
-                <svg
-                  className="h-3.5 w-3.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
-
-              {/* Mobile Back Button (hidden on desktop) */}
-              <Link
-                href={`/${encodeURIComponent(waId)}`}
-                className="lg:hidden inline-flex items-center text-xs font-medium text-text-secondary hover:text-text-primary mr-1"
-                title="Back to contacts"
-              >
-                <svg
-                  className="h-4 w-4 mr-0.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-                Back
-              </Link>
-
-              {contact?.photo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={contact.photo}
-                  alt={displayName}
-                  className="h-9 w-9 rounded-full object-cover border border-border-custom"
-                />
-              ) : (
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-hover text-xs font-medium text-text-primary border border-border-custom">
-                  {displayName.charAt(0).toUpperCase()}
-                </div>
-              )}
-
-              <div>
-                <h2 className="text-sm font-medium text-text-primary">{displayName}</h2>
-                <p className="text-[11px] font-mono text-text-secondary">{userPhone}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              {/* Mark as read action */}
-              {(chat?.unreadCount ?? 0) > 0 ? (
-                <button
-                  type="button"
-                  disabled={isMarkingRead}
-                  onClick={handleMarkAsRead}
-                  className="inline-flex items-center gap-1 rounded border border-border-custom bg-surface px-2.5 py-1 text-xs font-medium text-text-primary transition-colors hover:bg-surface-hover"
-                >
-                  ✓ Mark read ({chat?.unreadCount})
-                </button>
-              ) : (
-                <span className="text-[11px] text-text-muted">Read</span>
-              )}
-
-              {/* Current bot status badge in header */}
-              <div
-                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-                  isEffectiveActive
-                    ? "bg-accent-active-bg text-accent-active"
-                    : "bg-accent-paused-bg text-accent-paused"
-                }`}
-              >
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    isEffectiveActive ? "bg-accent-active" : "bg-accent-paused"
-                  }`}
-                />
-                <span>{isEffectiveActive ? "Bot Active" : "Bot Paused"}</span>
-              </div>
-
-              {/* Right panel toggle */}
-              <button
-                type="button"
-                onClick={toggleControlsPanel}
-                title={isControlsOpen ? "Hide details panel" : "Show details panel"}
-                aria-expanded={isControlsOpen}
-                className="inline-flex items-center justify-center rounded border border-border-custom bg-surface px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
-              >
-                <svg
-                  className={`h-3.5 w-3.5 transition-transform duration-200 ${
-                    isControlsOpen ? "rotate-0" : "rotate-180"
-                  }`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                </svg>
-              </button>
-            </div>
-          </div>
+          <ThreadHeader
+            waId={waId}
+            userPhone={userPhone}
+            contact={contact}
+            displayName={displayName}
+            chat={chat}
+            isEffectiveActive={isEffectiveActive}
+            isMarkingRead={isMarkingRead}
+            handleMarkAsRead={handleMarkAsRead}
+            isLeftPanelOpen={isLeftPanelOpen}
+            toggleLeftPanel={toggleLeftPanel}
+            isControlsOpen={isControlsOpen}
+            toggleControlsPanel={toggleControlsPanel}
+          />
 
           {/* Messages list area */}
           <div
@@ -637,195 +543,16 @@ export default function ContactDetailPage({ params }: PageProps) {
                   </div>
                 )}
                 {messages.map((msg, index) => {
-                const isCustomer = msg.userType === "customer";
-                const audioInfo = parseAudioMessage(msg);
-
-                const currentDateStr = formatDateDivider(msg.timeMillis);
                 const prevMsg = index > 0 ? messages[index - 1] : null;
-                const prevDateStr = prevMsg ? formatDateDivider(prevMsg.timeMillis) : null;
-                const showDateDivider = Boolean(currentDateStr && currentDateStr !== prevDateStr);
-
-                // Media unavailable fallbacks
-                const isImageExpected = msg.type === "image";
-                const isVideoExpected = msg.type === "video";
-                const isDocumentExpected = msg.type === "document";
-                const isThumbExpected = msg.type === "thumbnail";
-
-                const isImageUnavailable = isImageExpected && !msg.imgUrl;
-                const isVideoOrDocUnavailable = (isVideoExpected || isDocumentExpected) && !msg.fileUrl;
-                const isThumbUnavailable = isThumbExpected && !msg.thumb;
-
                 return (
-                  <React.Fragment key={msg.id}>
-                    {showDateDivider && (
-                      <div className="my-3 flex items-center justify-center">
-                        <span className="rounded-full bg-surface-hover px-3 py-1 text-[10px] font-medium text-text-secondary border border-border-custom shadow-2xs">
-                          {currentDateStr}
-                        </span>
-                      </div>
-                    )}
-
-                    <div
-                      className={`flex flex-col ${
-                        isCustomer ? "items-start" : "items-end"
-                      }`}
-                    >
-                      <div
-                        className={`max-w-[85%] sm:max-w-[75%] min-w-0 rounded-lg px-3.5 py-2.5 text-xs shadow-2xs break-words [overflow-wrap:anywhere] ${
-                          isCustomer
-                            ? "bg-surface text-text-primary border border-border-custom"
-                            : "bg-accent-active-bg text-text-primary border border-accent-active/20"
-                        }`}
-                      >
-                        {/* Sender label */}
-                        <div className="mb-1 flex items-center justify-between gap-3 text-[10px] font-medium text-text-secondary">
-                          <span>{isCustomer ? displayName : "Bot / Admin"}</span>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {msg.status === "pending" && (
-                              <span className="font-sans text-[9px] text-accent-paused">
-                                ⏳ Pending
-                              </span>
-                            )}
-                            {msg.status === "unconfirmed" && (
-                              <span
-                                className="font-sans text-[9px] text-accent-danger"
-                                title="Delivery confirmation not received from server within 60s"
-                              >
-                                ⚠️ Not confirmed
-                              </span>
-                            )}
-                            <span>{formatTimestamp(msg.timeMillis)}</span>
-                          </div>
-                        </div>
-
-                        {/* Quoted message placeholder */}
-                        {msg.messageQuoted && (
-                          <div className="mb-2 rounded border-l-2 border-text-secondary bg-surface-hover p-1.5 text-[11px] text-text-secondary break-words [overflow-wrap:anywhere]">
-                            <FormattedMessageText text={truncate(msg.messageQuoted, 80)} waId={waId} />
-                          </div>
-                        )}
-
-                        {/* Audio Message Rendering */}
-                        {audioInfo.isAudio ? (
-                          <div className="space-y-1.5 min-w-0">
-                            {audioInfo.displayText && (
-                              <FormattedMessageText text={audioInfo.displayText} waId={waId} />
-                            )}
-                            {audioInfo.audioUrl ? (
-                              <div className="mt-1.5 max-w-full">
-                                <audio
-                                  controls
-                                  src={audioInfo.audioUrl}
-                                  className="w-full min-w-[200px] max-w-xs rounded border border-border-custom bg-canvas text-text-primary"
-                                >
-                                  Your browser does not support audio playback.
-                                </audio>
-                              </div>
-                            ) : (
-                              <div className="inline-flex items-center gap-1.5 rounded border border-border-custom bg-canvas px-3 py-1.5 text-[11px] text-text-muted">
-                                <span>🎵</span>
-                                <span>Media unavailable</span>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          /* Text Message */
-                          msg.message && <FormattedMessageText text={msg.message} waId={waId} />
-                        )}
-
-                        {/* Inline Image Media Rendering (if not audio) */}
-                        {!audioInfo.isAudio && (
-                          <>
-                            {msg.imgUrl ? (
-                              <div
-                                onClick={() => setLightboxImage(msg.imgUrl!)}
-                                title="Click to view larger image"
-                                className="mt-2 overflow-hidden rounded-md border border-border-custom cursor-pointer group"
-                              >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={msg.imgUrl}
-                                  alt="Attached image"
-                                  className="max-h-64 w-auto rounded-md object-contain group-hover:opacity-90 transition-opacity"
-                                  loading="lazy"
-                                />
-                              </div>
-                            ) : (
-                              isImageUnavailable && (
-                                <div className="mt-2 inline-flex items-center gap-1.5 rounded border border-border-custom bg-canvas px-3 py-1.5 text-[11px] text-text-muted">
-                                  <span>📷</span>
-                                  <span>Media unavailable</span>
-                                </div>
-                              )
-                            )}
-                          </>
-                        )}
-
-                        {/* Video or Document File Rendering (if not audio) */}
-                        {!audioInfo.isAudio && (
-                          <>
-                            {msg.fileUrl ? (
-                              <div className="mt-2">
-                                {msg.fileUrl.match(/\.(mp4|webm|mov|mkv)(\?.*)?$/i) ? (
-                                  <video
-                                    controls
-                                    poster={msg.thumb}
-                                    className="max-h-64 w-full rounded-md border border-border-custom bg-text-primary"
-                                  >
-                                    <source src={msg.fileUrl} />
-                                    Your browser does not support video playback.
-                                  </video>
-                                ) : (
-                                  <a
-                                    href={msg.fileUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 rounded border border-border-custom bg-surface px-2.5 py-1.5 text-[11px] font-medium text-accent-active hover:bg-surface-hover"
-                                  >
-                                    📎 Download attachment
-                                  </a>
-                                )}
-                              </div>
-                            ) : (
-                              isVideoOrDocUnavailable && (
-                                <div className="mt-2 inline-flex items-center gap-1.5 rounded border border-border-custom bg-canvas px-3 py-1.5 text-[11px] text-text-muted">
-                                  <span>📎</span>
-                                  <span>Media unavailable</span>
-                                </div>
-                              )
-                            )}
-                          </>
-                        )}
-
-                        {!audioInfo.isAudio && (
-                          <>
-                            {msg.thumb && !msg.imgUrl && !msg.fileUrl ? (
-                              <div
-                                onClick={() => setLightboxImage(msg.thumb!)}
-                                title="Click to view larger image"
-                                className="mt-2 overflow-hidden rounded-md border border-border-custom cursor-pointer group"
-                              >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={msg.thumb}
-                                  alt="Thumbnail preview"
-                                  className="max-h-48 w-auto rounded-md object-contain group-hover:opacity-90 transition-opacity"
-                                  loading="lazy"
-                                />
-                              </div>
-                            ) : (
-                              isThumbUnavailable && (
-                                <div className="mt-2 inline-flex items-center gap-1.5 rounded border border-border-custom bg-canvas px-3 py-1.5 text-[11px] text-text-muted">
-                                  <span>🖼️</span>
-                                  <span>Media unavailable</span>
-                                </div>
-                              )
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </React.Fragment>
+                  <MessageBubble
+                    key={msg.id}
+                    msg={msg}
+                    prevMsg={prevMsg}
+                    waId={waId}
+                    displayName={displayName}
+                    setLightboxImage={setLightboxImage}
+                  />
                 );
               })}
               </>
