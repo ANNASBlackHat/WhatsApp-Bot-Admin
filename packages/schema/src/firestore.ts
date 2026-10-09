@@ -268,6 +268,10 @@ export interface OutgoingMessage {
   // --- Optional fields ---
   /** Image URL. */
   imgUrl?: string;
+  attachment_path?: string;
+  fileUrl?: string;
+  fileName?: string;
+  type?: string;
   /** Quoted message ID. */
   quotedMessageId?: string;
   /** Quoted message sender JID. */

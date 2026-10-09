@@ -139,4 +139,10 @@ export interface ChatDataSource {
   ): Promise<void>;
   /** Queues to `wa_bot/recent-chat/all` + writes a local `pending` message. */
   sendManualReply(waId: string, userPhone: string, text: string): Promise<void>;
+  sendMediaReply(
+    waId: string,
+    userPhone: string,
+    media: { url: string; type: "image" | "document"; caption?: string; fileName?: string }
+  ): Promise<void>;
+  forwardMessage(fromWaId: string, toUserPhone: string, originalMessage: Message): Promise<void>;
 }

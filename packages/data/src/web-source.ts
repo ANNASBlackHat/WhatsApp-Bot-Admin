@@ -38,6 +38,7 @@ import {
   type Chat,
   type Contact,
   type Message,
+  type OutgoingMessage,
   type WaAccount,
   type WithId,
 } from "../../schema/src/index";
@@ -352,6 +353,107 @@ export class WebChatDataSource implements ChatDataSource {
       await setDoc(
         chatRef,
         { lastChatMessage: trimmed, lastChatTime: now, phone: userPhone },
+        { merge: true }
+      );
+    });
+  }
+  async sendMediaReply(
+    waId: string,
+    userPhone: string,
+    media: { url: string; type: "image" | "document"; caption?: string; fileName?: string }
+  ): Promise<void> {
+    const now = Date.now();
+    const caption = media.caption?.trim() || "";
+
+    const outboxRef = doc(collection(this.db, "wa_bot/recent-chat/all"));
+    await setDoc(outboxRef, {
+      from: waId,
+      to: userPhone,
+      message: caption,
+      timestamp: now,
+      attachment_path: media.url,
+      type: media.type,
+      fileName: media.fileName,
+      imgUrl: media.type === "image" ? media.url : undefined,
+      fileUrl: media.type === "document" ? media.url : undefined,
+    } as OutgoingMessage);
+
+    const msgRef = doc(collection(this.db, messagesCollection(waId, userPhone)));
+    await setDoc(msgRef, {
+      message: caption,
+      sender: waId,
+      userType: "admin",
+      timeMillis: now,
+      status: "pending",
+      messageId: msgRef.id,
+      type: media.type,
+      imgUrl: media.type === "image" ? media.url : undefined,
+      fileUrl: media.type === "document" ? media.url : undefined,
+    });
+
+    const chatRef = doc(this.db, chatDoc(waId, userPhone));
+    await updateDoc(chatRef, {
+      lastChatMessage: caption || `[${media.type}]`,
+      lastChatTime: now,
+    }).catch(async () => {
+      await setDoc(
+        chatRef,
+        { lastChatMessage: caption || `[${media.type}]`, lastChatTime: now, phone: userPhone },
+        { merge: true }
+      );
+    });
+  }
+
+  async forwardMessage(fromWaId: string, toUserPhone: string, originalMessage: Message): Promise<void> {
+    const now = Date.now();
+    const outboxRef = doc(collection(this.db, "wa_bot/recent-chat/all"));
+
+    const outgoingData: Partial<OutgoingMessage> = {
+      from: fromWaId,
+      to: toUserPhone,
+      message: originalMessage.message || "",
+      timestamp: now,
+      type: originalMessage.type,
+    };
+
+    if (originalMessage.imgUrl) {
+      outgoingData.imgUrl = originalMessage.imgUrl;
+      outgoingData.attachment_path = originalMessage.imgUrl;
+    }
+    if (originalMessage.fileUrl) {
+      outgoingData.fileUrl = originalMessage.fileUrl;
+      if (!outgoingData.attachment_path) {
+        outgoingData.attachment_path = originalMessage.fileUrl;
+      }
+    }
+
+    await setDoc(outboxRef, outgoingData as OutgoingMessage);
+
+    const msgRef = doc(collection(this.db, messagesCollection(fromWaId, toUserPhone)));
+    await setDoc(msgRef, {
+      message: originalMessage.message || "",
+      sender: fromWaId,
+      userType: "admin",
+      timeMillis: now,
+      status: "pending",
+      messageId: msgRef.id,
+      type: originalMessage.type,
+      imgUrl: originalMessage.imgUrl,
+      fileUrl: originalMessage.fileUrl,
+    });
+
+    const chatRef = doc(this.db, chatDoc(fromWaId, toUserPhone));
+    await updateDoc(chatRef, {
+      lastChatMessage: originalMessage.message || `[Forwarded ${originalMessage.type || "message"}]`,
+      lastChatTime: now,
+    }).catch(async () => {
+      await setDoc(
+        chatRef,
+        {
+          lastChatMessage: originalMessage.message || `[Forwarded ${originalMessage.type || "message"}]`,
+          lastChatTime: now,
+          phone: toUserPhone,
+        },
         { merge: true }
       );
     });
