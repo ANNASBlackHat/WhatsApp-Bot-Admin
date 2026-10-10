@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link, useLocalSearchParams } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
+import { Link, Stack, useLocalSearchParams } from "expo-router";
 import {
   ActivityIndicator,
   FlatList,
@@ -22,6 +22,7 @@ import { colors, fontSize, spacing } from "../../src/theme";
 import { AccountSwitcherModal } from "../../src/components/AccountSwitcherModal";
 import { auth } from "../../src/firebase";
 import { signOut } from "@react-native-firebase/auth";
+import { setLastSelectedWaId } from "../../src/storage";
 
 type Filter = TabKey;
 
@@ -39,6 +40,12 @@ export default function ChatsScreen() {
   const { waId } = useLocalSearchParams<{ waId: string }>();
   const { accounts } = useAccounts();
   const [switcherVisible, setSwitcherVisible] = useState(false);
+
+  useEffect(() => {
+    if (waId) {
+      setLastSelectedWaId(waId);
+    }
+  }, [waId]);
   const {
     account,
     chats,
@@ -156,31 +163,27 @@ export default function ChatsScreen() {
 
   return (
     <View style={styles.root}>
-      {/* Top Header with Account Switcher button (Gmail-style) */}
-      <View style={styles.topBar}>
-        <View style={styles.topBarLeft}>
-          <Text style={styles.appTitle}>Conversations</Text>
-          <Text style={styles.count}>
-            {totalChats != null && totalChats > chats.length
-              ? `Showing ${chats.length} of ${totalChats}`
-              : `${totalChats ?? chats.length} chats`}
-            {unreadTotal > 0 ? ` · ${unreadTotal} unread` : ""}
-          </Text>
-        </View>
-
-        {/* Gmail-style account profile avatar button */}
-        <TouchableOpacity
-          style={styles.profileBtn}
-          onPress={() => setSwitcherVisible(true)}
-          activeOpacity={0.8}
-        >
-          <View style={styles.profileAvatar}>
-            <Text style={styles.profileAvatarText}>
-              {currentDisplayName.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-        </TouchableOpacity>
-      </View>
+      <Stack.Screen
+        options={{
+          title: "Conversations",
+          headerBackVisible: false,
+          headerLeft: () => null,
+          headerRight: () => (
+            <TouchableOpacity
+              style={styles.headerProfileBtn}
+              onPress={() => setSwitcherVisible(true)}
+              activeOpacity={0.8}
+              accessibilityLabel="Switch WhatsApp Account"
+            >
+              <View style={styles.headerProfileAvatar}>
+                <Text style={styles.headerProfileAvatarText}>
+                  {currentDisplayName.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ),
+        }}
+      />
 
       <View style={styles.header}>
         <TextInput
@@ -189,6 +192,17 @@ export default function ChatsScreen() {
           value={query}
           onChangeText={setQuery}
         />
+        <View style={styles.metaRow}>
+          <Text style={styles.count}>
+            {totalChats != null && totalChats > chats.length
+              ? `Showing ${chats.length} of ${totalChats}`
+              : `${totalChats ?? chats.length} chats`}
+            {unreadTotal > 0 ? ` · ${unreadTotal} unread` : ""}
+          </Text>
+          <Text style={styles.currentAccountBadge} numberOfLines={1}>
+            {currentDisplayName}
+          </Text>
+        </View>
         <View style={styles.pills}>
           {[...statusTabs, ...folders.map((f) => ({ key: f.key as TabKey, label: f.name }))].map(
             (tab) => (
@@ -257,41 +271,35 @@ export default function ChatsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.canvas },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xs,
-    backgroundColor: colors.surface,
+  headerProfileBtn: {
+    padding: 4,
+    marginRight: 4,
   },
-  topBarLeft: {
-    flex: 1,
-  },
-  appTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  profileBtn: {
-    padding: 2,
-  },
-  profileAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  headerProfileAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: colors.active,
     alignItems: "center",
     justifyContent: "center",
   },
-  profileAvatarText: {
+  headerProfileAvatarText: {
     fontSize: fontSize.sm,
     fontWeight: "700",
     color: colors.white,
   },
-  header: { padding: spacing.md, paddingTop: spacing.xs, gap: spacing.sm, backgroundColor: colors.surface },
+  header: { padding: spacing.md, gap: spacing.sm, backgroundColor: colors.surface },
+  metaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   count: { fontSize: fontSize.xs, color: colors.textSecondary },
+  currentAccountBadge: {
+    fontSize: fontSize.xs,
+    color: colors.textSecondary,
+    fontWeight: "500",
+  },
   search: {
     backgroundColor: colors.canvas,
     borderColor: colors.border,

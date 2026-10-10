@@ -11,11 +11,22 @@ import { signInWithEmailAndPassword } from "@react-native-firebase/auth";
 import { auth } from "../src/firebase";
 import { colors, fontSize, spacing } from "../src/theme";
 
+import { useAuthState } from "../src/hooks";
+
 export default function LoginScreen() {
+  const { user, loading: authLoading } = useAuthState();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  if (authLoading || user) {
+    return (
+      <View style={[styles.root, { alignItems: "center" }]}>
+        <ActivityIndicator size="large" color={colors.textPrimary} />
+      </View>
+    );
+  }
 
   const handleSignIn = async () => {
     if (!email.trim() || !password || busy) return;

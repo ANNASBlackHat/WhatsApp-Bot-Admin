@@ -12,6 +12,8 @@ import { useRouter } from "expo-router";
 import { colors, fontSize, spacing } from "../theme";
 import type { AccountOption } from "../hooks";
 
+import { setLastSelectedWaId } from "../storage";
+
 interface AccountSwitcherModalProps {
   visible: boolean;
   currentWaId: string;
@@ -32,6 +34,7 @@ export function AccountSwitcherModal({
   const handleSelectAccount = (waId: string) => {
     onClose();
     if (waId !== currentWaId) {
+      setLastSelectedWaId(waId);
       router.replace(`/${encodeURIComponent(waId)}/chats`);
     }
   };

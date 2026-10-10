@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import {
   ActivityIndicator,
   FlatList,
@@ -119,6 +119,7 @@ export default function ThreadScreen() {
 
   return (
     <View style={styles.root}>
+      <Stack.Screen options={{ title: name }} />
       <View style={styles.header}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{String(name).charAt(0).toUpperCase()}</Text>

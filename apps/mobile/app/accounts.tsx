@@ -10,8 +10,12 @@ import {
 import { useAccounts } from "../src/hooks";
 import { colors, fontSize, spacing } from "../src/theme";
 
+import { useRouter } from "expo-router";
+import { setLastSelectedWaId } from "../src/storage";
+
 export default function AccountsScreen() {
   const { accounts, loading } = useAccounts();
+  const router = useRouter();
 
   if (loading) {
     return (
@@ -30,26 +34,29 @@ export default function AccountsScreen() {
     );
   }
 
+  const handleSelect = (waId: string) => {
+    setLastSelectedWaId(waId);
+    router.replace(`/${encodeURIComponent(waId)}/chats`);
+  };
+
   return (
     <FlatList
       style={styles.list}
       data={accounts}
       keyExtractor={(a) => a.waId}
       renderItem={({ item }) => (
-        <Link href={`/${encodeURIComponent(item.waId)}/chats`} asChild>
-          <TouchableOpacity style={styles.row}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {item.displayName.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-            <View style={styles.rowBody}>
-              <Text style={styles.name}>{item.displayName}</Text>
-              <Text style={styles.mono}>{item.waId}</Text>
-            </View>
-            <Text style={styles.chevron}>›</Text>
-          </TouchableOpacity>
-        </Link>
+        <TouchableOpacity style={styles.row} onPress={() => handleSelect(item.waId)}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {item.displayName.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          <View style={styles.rowBody}>
+            <Text style={styles.name}>{item.displayName}</Text>
+            <Text style={styles.mono}>{item.waId}</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
       )}
     />
   );
