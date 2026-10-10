@@ -131,6 +131,12 @@ export interface ChatDataSource {
     userPhone: string,
     folderKey: string | null
   ): Promise<void>;
+  /** Toggle or set pinned status for a chat. */
+  setChatPinned(
+    waId: string,
+    userPhone: string,
+    pinned: boolean
+  ): Promise<void>;
   /** Local display name; `null` clears it (falls back to synced name). */
   setContactDisplayName(
     waId: string,

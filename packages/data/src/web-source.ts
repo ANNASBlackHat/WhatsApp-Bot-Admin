@@ -308,6 +308,17 @@ export class WebChatDataSource implements ChatDataSource {
     });
   }
 
+  async setChatPinned(
+    waId: string,
+    userPhone: string,
+    pinned: boolean
+  ): Promise<void> {
+    const ref = doc(this.db, chatDoc(waId, userPhone));
+    await updateDoc(ref, { pinned }).catch(async () => {
+      await setDoc(ref, { pinned, phone: userPhone }, { merge: true });
+    });
+  }
+
   async setContactDisplayName(
     waId: string,
     userPhone: string,

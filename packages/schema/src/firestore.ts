@@ -141,6 +141,11 @@ export interface Chat {
    * - any other key → shown under that folder's tab
    */
   folder?: string | null;
+
+  /**
+   * Whether the chat is pinned to the top of conversation lists.
+   */
+  pinned?: boolean | null;
 }
 
 // ---------------------------------------------------------------------------

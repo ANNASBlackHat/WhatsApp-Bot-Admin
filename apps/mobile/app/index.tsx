@@ -9,11 +9,11 @@ import {
 } from "react-native";
 import { signInWithEmailAndPassword } from "@react-native-firebase/auth";
 import { auth } from "../src/firebase";
-import { colors, fontSize, spacing } from "../src/theme";
-
+import { colors, fontSize, spacing, useTheme } from "../src/theme";
 import { useAuthState } from "../src/hooks";
 
 export default function LoginScreen() {
+  const { colors } = useTheme();
   const { user, loading: authLoading } = useAuthState();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,7 +22,7 @@ export default function LoginScreen() {
 
   if (authLoading || user) {
     return (
-      <View style={[styles.root, { alignItems: "center" }]}>
+      <View style={[styles.root, { backgroundColor: colors.canvas, alignItems: "center" }]}>
         <ActivityIndicator size="large" color={colors.textPrimary} />
       </View>
     );
@@ -45,38 +45,40 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.root}>
-      <Text style={styles.title}>WA Bot Admin</Text>
-      <Text style={styles.subtitle}>Sign in with your admin account</Text>
+    <View style={[styles.root, { backgroundColor: colors.canvas }]}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>WA Bot Admin</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Sign in with your admin account</Text>
 
       <TextInput
-        style={styles.input}
+        style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary }]}
         placeholder="Email"
+        placeholderTextColor={colors.textMuted}
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
         onChangeText={setEmail}
       />
       <TextInput
-        style={styles.input}
+        style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary }]}
         placeholder="Password"
+        placeholderTextColor={colors.textMuted}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
         onSubmitEditing={handleSignIn}
       />
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
 
       <TouchableOpacity
-        style={[styles.button, busy && styles.buttonBusy]}
+        style={[styles.button, { backgroundColor: colors.textPrimary }, busy && styles.buttonBusy]}
         onPress={handleSignIn}
         disabled={busy}
       >
         {busy ? (
-          <ActivityIndicator color={colors.white} />
+          <ActivityIndicator color={colors.surface} />
         ) : (
-          <Text style={styles.buttonText}>Sign in</Text>
+          <Text style={[styles.buttonText, { color: colors.surface }]}>Sign in</Text>
         )}
       </TouchableOpacity>
     </View>

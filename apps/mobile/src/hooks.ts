@@ -202,6 +202,14 @@ export function useChatsList(waId: string) {
     setPageSize((p) => p + CHATS_PAGE_SIZE);
   }, [hasMore, loadingMore]);
 
+  const togglePinChat = useCallback(
+    async (phone: string, currentPinned?: boolean | null) => {
+      if (!waId || !phone) return;
+      await chatSource.setChatPinned(waId, phone, !currentPinned);
+    },
+    [waId]
+  );
+
   return {
     account,
     chats,
@@ -213,6 +221,7 @@ export function useChatsList(waId: string) {
     loading,
     error,
     loadMore,
+    togglePinChat,
   };
 }
 
@@ -354,6 +363,12 @@ export function useThread(waId: string, userPhone: string) {
     [waId, userPhone, sending]
   );
 
+  const togglePin = useCallback(async () => {
+    if (!waId || !userPhone) return;
+    const next = !Boolean(snapshot.chat?.pinned);
+    await chatSource.setChatPinned(waId, userPhone, next);
+  }, [waId, userPhone, snapshot.chat?.pinned]);
+
   return {
     snapshot,
     loading,
@@ -365,5 +380,6 @@ export function useThread(waId: string, userPhone: string) {
     sendError,
     send,
     sendMedia,
+    togglePin,
   };
 }

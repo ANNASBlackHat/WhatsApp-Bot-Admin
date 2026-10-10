@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, Stack, useLocalSearchParams } from "expo-router";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   StyleSheet,
   Text,
@@ -18,7 +19,7 @@ import {
   type TabKey,
 } from "@app/schema";
 import { useAccounts, useChatsList } from "../../src/hooks";
-import { colors, fontSize, spacing } from "../../src/theme";
+import { fontSize, spacing, useTheme } from "../../src/theme";
 import { AccountSwitcherModal } from "../../src/components/AccountSwitcherModal";
 import { auth } from "../../src/firebase";
 import { signOut } from "@react-native-firebase/auth";
@@ -37,6 +38,7 @@ function formatTime(timestamp?: number): string {
 }
 
 export default function ChatsScreen() {
+  const { colors } = useTheme();
   const { waId } = useLocalSearchParams<{ waId: string }>();
   const { accounts } = useAccounts();
   const [switcherVisible, setSwitcherVisible] = useState(false);
@@ -46,6 +48,7 @@ export default function ChatsScreen() {
       setLastSelectedWaId(waId);
     }
   }, [waId]);
+
   const {
     account,
     chats,
@@ -57,6 +60,7 @@ export default function ChatsScreen() {
     loading,
     error,
     loadMore,
+    togglePinChat,
   } = useChatsList(waId ?? "");
 
   const activeAccount = accounts.find((a) => a.waId === waId);
@@ -70,7 +74,7 @@ export default function ChatsScreen() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return chats.filter((chat) => {
+    const list = chats.filter((chat) => {
       const phone = chat.phone || chat.id;
       const contact = contactsMap[phone] ?? contactsMap[chat.id];
       const name = resolveDisplayName(contact, phone);
@@ -82,6 +86,14 @@ export default function ChatsScreen() {
         if (!hit) return false;
       }
       return matchesTab(chat, filter, defaultPolicyActive);
+    });
+
+    // Pinned chats appear at the top, then sorted by newest activity
+    return list.slice().sort((a, b) => {
+      const pinA = Boolean(a.pinned);
+      const pinB = Boolean(b.pinned);
+      if (pinA !== pinB) return pinA ? -1 : 1;
+      return (b.lastChatTime ?? 0) - (a.lastChatTime ?? 0);
     });
   }, [chats, contactsMap, query, filter, defaultPolicyActive]);
 
@@ -107,6 +119,21 @@ export default function ChatsScreen() {
     { key: "paused", label: "Paused" },
   ];
 
+  const handleLongPress = (item: WithId<Chat>, phone: string, name: string) => {
+    const isPinned = Boolean(item.pinned);
+    Alert.alert(
+      name,
+      isPinned ? "Unpin this conversation from top?" : "Pin this conversation to top?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: isPinned ? "Unpin" : "Pin to top",
+          onPress: () => void togglePinChat(phone, isPinned),
+        },
+      ]
+    );
+  };
+
   const renderRow = ({ item }: { item: WithId<Chat> }) => {
     const phone = item.phone || item.id;
     const contact = contactsMap[phone] ?? contactsMap[item.id];
@@ -114,24 +141,32 @@ export default function ChatsScreen() {
     const isDefault = item.bot_active == null;
     const effective = isDefault ? defaultPolicyActive : Boolean(item.bot_active);
     const unread = item.unreadCount ?? 0;
+    const isPinned = Boolean(item.pinned);
 
     return (
       <Link
         href={`/${encodeURIComponent(waId ?? "")}/${encodeURIComponent(phone)}`}
         asChild
       >
-        <TouchableOpacity style={styles.row}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{name.charAt(0).toUpperCase()}</Text>
+        <TouchableOpacity
+          style={[styles.row, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}
+          onLongPress={() => handleLongPress(item, phone, name)}
+          delayLongPress={400}
+        >
+          <View style={[styles.avatar, { backgroundColor: colors.surfaceHover }]}>
+            <Text style={[styles.avatarText, { color: colors.textPrimary }]}>{name.charAt(0).toUpperCase()}</Text>
           </View>
           <View style={styles.rowBody}>
             <View style={styles.rowTop}>
-              <Text style={styles.name} numberOfLines={1}>
-                {name}
-              </Text>
-              <Text style={styles.time}>{formatTime(item.lastChatTime)}</Text>
+              <View style={styles.nameRow}>
+                {isPinned ? <Text style={styles.pinBadge}>📌 </Text> : null}
+                <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>
+                  {name}
+                </Text>
+              </View>
+              <Text style={[styles.time, { color: colors.textMuted }]}>{formatTime(item.lastChatTime)}</Text>
             </View>
-            <Text style={styles.preview} numberOfLines={1}>
+            <Text style={[styles.preview, { color: colors.textSecondary }]} numberOfLines={1}>
               {item.lastChatMessage || "No messages yet"}
             </Text>
           </View>
@@ -143,7 +178,7 @@ export default function ChatsScreen() {
               ]}
             />
             {unread > 0 ? (
-              <View style={styles.badge}>
+              <View style={[styles.badge, { backgroundColor: colors.danger }]}>
                 <Text style={styles.badgeText}>{unread > 99 ? "99+" : String(unread)}</Text>
               </View>
             ) : null}
@@ -162,7 +197,7 @@ export default function ChatsScreen() {
   };
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.canvas }]}>
       <Stack.Screen
         options={{
           title: "Conversations",
@@ -175,7 +210,7 @@ export default function ChatsScreen() {
               activeOpacity={0.8}
               accessibilityLabel="Switch WhatsApp Account"
             >
-              <View style={styles.headerProfileAvatar}>
+              <View style={[styles.headerProfileAvatar, { backgroundColor: colors.active }]}>
                 <Text style={styles.headerProfileAvatarText}>
                   {currentDisplayName.charAt(0).toUpperCase()}
                 </Text>
@@ -185,37 +220,49 @@ export default function ChatsScreen() {
         }}
       />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface }]}>
         <TextInput
-          style={styles.search}
+          style={[styles.search, { backgroundColor: colors.canvas, borderColor: colors.border, color: colors.textPrimary }]}
           placeholder="Search name, phone, message..."
+          placeholderTextColor={colors.textMuted}
           value={query}
           onChangeText={setQuery}
         />
         <View style={styles.metaRow}>
-          <Text style={styles.count}>
+          <Text style={[styles.count, { color: colors.textSecondary }]}>
             {totalChats != null && totalChats > chats.length
               ? `Showing ${chats.length} of ${totalChats}`
               : `${totalChats ?? chats.length} chats`}
             {unreadTotal > 0 ? ` · ${unreadTotal} unread` : ""}
           </Text>
-          <Text style={styles.currentAccountBadge} numberOfLines={1}>
+          <Text style={[styles.currentAccountBadge, { color: colors.textSecondary }]} numberOfLines={1}>
             {currentDisplayName}
           </Text>
         </View>
         <View style={styles.pills}>
           {[...statusTabs, ...folders.map((f) => ({ key: f.key as TabKey, label: f.name }))].map(
-            (tab) => (
-              <TouchableOpacity
-                key={tab.key}
-                style={[styles.pill, filter === tab.key && styles.pillActive]}
-                onPress={() => setFilter(tab.key)}
-              >
-                <Text style={[styles.pillText, filter === tab.key && styles.pillTextActive]}>
-                  {tab.label} ({tabCounts[tab.key] ?? 0})
-                </Text>
-              </TouchableOpacity>
-            )
+            (tab) => {
+              const active = filter === tab.key;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={[
+                    styles.pill,
+                    { backgroundColor: active ? colors.textPrimary : colors.canvas },
+                  ]}
+                  onPress={() => setFilter(tab.key)}
+                >
+                  <Text
+                    style={[
+                      styles.pillText,
+                      { color: active ? colors.surface : colors.textSecondary },
+                    ]}
+                  >
+                    {tab.label} ({tabCounts[tab.key] ?? 0})
+                  </Text>
+                </TouchableOpacity>
+              );
+            }
           )}
         </View>
       </View>
@@ -230,12 +277,12 @@ export default function ChatsScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator />
-          <Text style={styles.muted}>Loading contacts...</Text>
+          <ActivityIndicator color={colors.textPrimary} />
+          <Text style={[styles.muted, { color: colors.textSecondary }]}>Loading contacts...</Text>
         </View>
       ) : error ? (
         <View style={styles.center}>
-          <Text style={styles.error}>{error}</Text>
+          <Text style={[styles.error, { color: colors.danger }]}>{error}</Text>
         </View>
       ) : (
         <FlatList
@@ -243,7 +290,9 @@ export default function ChatsScreen() {
           keyExtractor={(c) => c.id}
           renderItem={renderRow}
           ListEmptyComponent={
-            <Text style={styles.empty}>No contacts found.</Text>
+            <Text style={[styles.empty, { color: colors.textSecondary }]}>
+              {query ? "No chats match your search." : "No chats in this folder."}
+            </Text>
           }
           ListFooterComponent={
             hasMore ? (
@@ -253,9 +302,9 @@ export default function ChatsScreen() {
                 disabled={loadingMore}
               >
                 {loadingMore ? (
-                  <ActivityIndicator size="small" />
+                  <ActivityIndicator color={colors.textPrimary} />
                 ) : (
-                  <Text style={styles.moreText}>
+                  <Text style={[styles.moreText, { color: colors.textSecondary }]}>
                     Load more ({chats.length}
                     {totalChats != null ? ` of ${totalChats}` : ""})
                   </Text>
@@ -270,7 +319,7 @@ export default function ChatsScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.canvas },
+  root: { flex: 1 },
   headerProfileBtn: {
     padding: 4,
     marginRight: 4,
@@ -279,30 +328,26 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.active,
     alignItems: "center",
     justifyContent: "center",
   },
   headerProfileAvatarText: {
     fontSize: fontSize.sm,
     fontWeight: "700",
-    color: colors.white,
+    color: "#FFFFFF",
   },
-  header: { padding: spacing.md, gap: spacing.sm, backgroundColor: colors.surface },
+  header: { padding: spacing.md, gap: spacing.sm },
   metaRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  count: { fontSize: fontSize.xs, color: colors.textSecondary },
+  count: { fontSize: fontSize.xs },
   currentAccountBadge: {
     fontSize: fontSize.xs,
-    color: colors.textSecondary,
     fontWeight: "500",
   },
   search: {
-    backgroundColor: colors.canvas,
-    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 8,
     padding: spacing.sm,
@@ -313,55 +358,49 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    backgroundColor: colors.canvas,
   },
-  pillActive: { backgroundColor: colors.textPrimary },
-  pillText: { fontSize: fontSize.xs, color: colors.textSecondary },
-  pillTextActive: { color: colors.white },
+  pillText: { fontSize: fontSize.xs, fontWeight: "500" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.sm },
-  muted: { fontSize: fontSize.sm, color: colors.textSecondary },
-  error: { fontSize: fontSize.sm, color: colors.danger },
+  muted: { fontSize: fontSize.sm },
+  error: { fontSize: fontSize.sm },
   empty: {
     textAlign: "center",
     fontSize: fontSize.sm,
-    color: colors.textSecondary,
     marginTop: spacing.xl,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surface,
     padding: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
     gap: spacing.md,
   },
   avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.surfaceHover,
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { fontSize: fontSize.md, fontWeight: "600", color: colors.textPrimary },
+  avatarText: { fontSize: fontSize.md, fontWeight: "600" },
   rowBody: { flex: 1 },
-  rowTop: { flexDirection: "row", justifyContent: "space-between", gap: spacing.sm },
-  name: { flex: 1, fontSize: fontSize.sm, fontWeight: "600", color: colors.textPrimary },
-  time: { fontSize: fontSize.xs, color: colors.textMuted },
-  preview: { fontSize: fontSize.xs, color: colors.textSecondary, marginTop: 2 },
+  rowTop: { flexDirection: "row", justifyContent: "space-between", gap: spacing.sm, alignItems: "center" },
+  nameRow: { flex: 1, flexDirection: "row", alignItems: "center" },
+  pinBadge: { fontSize: fontSize.xs },
+  name: { flex: 1, fontSize: fontSize.sm, fontWeight: "600" },
+  time: { fontSize: fontSize.xs },
+  preview: { fontSize: fontSize.xs, marginTop: 2 },
   rowRight: { alignItems: "flex-end", gap: spacing.xs },
   dot: { width: 8, height: 8, borderRadius: 4 },
   badge: {
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: colors.danger,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 4,
   },
-  badgeText: { color: colors.white, fontSize: 10, fontWeight: "700" },
+  badgeText: { color: "#FFFFFF", fontSize: 10, fontWeight: "700" },
   more: { padding: spacing.lg, alignItems: "center" },
-  moreText: { fontSize: fontSize.sm, color: colors.textSecondary },
+  moreText: { fontSize: fontSize.sm },
 });

@@ -12,7 +12,7 @@ import {
 import { useChatsList } from "../hooks";
 import { chatSource } from "../data";
 import type { Message, WithId } from "@app/schema";
-import { colors, fontSize, spacing } from "../theme";
+import { fontSize, spacing, useTheme } from "../theme";
 
 export interface ForwardMessageModalProps {
   visible: boolean;
@@ -27,6 +27,7 @@ export function ForwardMessageModal({
   waId,
   messageToForward,
 }: ForwardMessageModalProps) {
+  const { colors } = useTheme();
   const { chats, loading } = useChatsList(waId);
   const [search, setSearch] = useState("");
   const [forwardingPhone, setForwardingPhone] = useState<string | null>(null);
@@ -54,16 +55,23 @@ export function ForwardMessageModal({
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={styles.overlay}>
-        <View style={styles.modal}>
+        <View style={[styles.modal, { backgroundColor: colors.surface }]}>
           <View style={styles.header}>
-            <Text style={styles.title}>Forward Message</Text>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>Forward Message</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>Close</Text>
+              <Text style={[styles.closeBtnText, { color: colors.textSecondary }]}>Close</Text>
             </TouchableOpacity>
           </View>
 
           <TextInput
-            style={styles.searchInput}
+            style={[
+              styles.searchInput,
+              {
+                borderColor: colors.border,
+                color: colors.textPrimary,
+                backgroundColor: colors.canvas,
+              },
+            ]}
             placeholder="Search contacts by phone..."
             placeholderTextColor={colors.textMuted}
             value={search}
@@ -71,7 +79,7 @@ export function ForwardMessageModal({
           />
 
           {loading && chats.length === 0 ? (
-            <ActivityIndicator style={styles.loader} />
+            <ActivityIndicator style={styles.loader} color={colors.textPrimary} />
           ) : (
             <FlatList
               data={filteredChats}
@@ -79,20 +87,20 @@ export function ForwardMessageModal({
               style={styles.list}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={styles.contactItem}
+                  style={[styles.contactItem, { borderBottomColor: colors.border }]}
                   disabled={!!forwardingPhone}
                   onPress={() => handleForward(item.phone)}
                 >
-                  <Text style={styles.contactName}>{item.phone}</Text>
+                  <Text style={[styles.contactName, { color: colors.textPrimary }]}>{item.phone}</Text>
                   {forwardingPhone === item.phone ? (
                     <ActivityIndicator size="small" color={colors.active} />
                   ) : (
-                    <Text style={styles.forwardText}>Forward</Text>
+                    <Text style={[styles.forwardText, { color: colors.active }]}>Forward</Text>
                   )}
                 </TouchableOpacity>
               )}
               ListEmptyComponent={
-                <Text style={styles.emptyText}>No contacts found.</Text>
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No contacts found.</Text>
               }
             />
           )}
@@ -105,11 +113,10 @@ export function ForwardMessageModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "flex-end",
   },
   modal: {
-    backgroundColor: colors.surface,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     padding: spacing.md,
@@ -124,22 +131,17 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fontSize.lg,
     fontWeight: "600",
-    color: colors.textPrimary,
   },
   closeBtn: {
     padding: spacing.xs,
   },
   closeBtnText: {
-    color: colors.textSecondary,
     fontSize: fontSize.sm,
   },
   searchInput: {
     borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: 8,
     padding: spacing.sm,
-    color: colors.textPrimary,
-    backgroundColor: colors.canvas,
     marginBottom: spacing.md,
   },
   loader: {
@@ -154,20 +156,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   contactName: {
     fontSize: fontSize.md,
-    color: colors.textPrimary,
   },
   forwardText: {
     fontSize: fontSize.sm,
-    color: colors.active,
     fontWeight: "500",
   },
   emptyText: {
     textAlign: "center",
-    color: colors.textSecondary,
     marginTop: spacing.xl,
     fontSize: fontSize.sm,
   },

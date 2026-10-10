@@ -316,6 +316,14 @@ export class NativeChatDataSource implements ChatDataSource {
     await updateDoc(doc(this.db, chatDoc(waId, userPhone)), { unreadCount: 0 });
   }
 
+  async setChatPinned(
+    waId: string,
+    userPhone: string,
+    pinned: boolean
+  ): Promise<void> {
+    await updateDoc(doc(this.db, chatDoc(waId, userPhone)), { pinned });
+  }
+
   setBotActive(): Promise<never> {
     return unimplemented(
       "setBotActive",

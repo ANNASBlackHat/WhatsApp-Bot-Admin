@@ -8,28 +8,28 @@ import {
   View,
 } from "react-native";
 import { useAccounts } from "../src/hooks";
-import { colors, fontSize, spacing } from "../src/theme";
-
+import { colors, fontSize, spacing, useTheme } from "../src/theme";
 import { useRouter } from "expo-router";
 import { setLastSelectedWaId } from "../src/storage";
 
 export default function AccountsScreen() {
+  const { colors } = useTheme();
   const { accounts, loading } = useAccounts();
   const router = useRouter();
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator />
-        <Text style={styles.muted}>Loading accounts...</Text>
+      <View style={[styles.center, { backgroundColor: colors.canvas }]}>
+        <ActivityIndicator color={colors.textPrimary} />
+        <Text style={[styles.muted, { color: colors.textSecondary }]}>Loading accounts...</Text>
       </View>
     );
   }
 
   if (accounts.length === 0) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>No WhatsApp accounts found.</Text>
+      <View style={[styles.center, { backgroundColor: colors.canvas }]}>
+        <Text style={[styles.muted, { color: colors.textSecondary }]}>No WhatsApp accounts found.</Text>
       </View>
     );
   }
@@ -41,21 +41,24 @@ export default function AccountsScreen() {
 
   return (
     <FlatList
-      style={styles.list}
+      style={[styles.list, { backgroundColor: colors.canvas }]}
       data={accounts}
       keyExtractor={(a) => a.waId}
       renderItem={({ item }) => (
-        <TouchableOpacity style={styles.row} onPress={() => handleSelect(item.waId)}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
+        <TouchableOpacity
+          style={[styles.row, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}
+          onPress={() => handleSelect(item.waId)}
+        >
+          <View style={[styles.avatar, { backgroundColor: colors.surfaceHover }]}>
+            <Text style={[styles.avatarText, { color: colors.textPrimary }]}>
               {item.displayName.charAt(0).toUpperCase()}
             </Text>
           </View>
           <View style={styles.rowBody}>
-            <Text style={styles.name}>{item.displayName}</Text>
-            <Text style={styles.mono}>{item.waId}</Text>
+            <Text style={[styles.name, { color: colors.textPrimary }]}>{item.displayName}</Text>
+            <Text style={[styles.mono, { color: colors.textSecondary }]}>{item.waId}</Text>
           </View>
-          <Text style={styles.chevron}>›</Text>
+          <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
         </TouchableOpacity>
       )}
     />
